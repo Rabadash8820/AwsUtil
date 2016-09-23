@@ -112,7 +112,6 @@ echo Starting the Danware server...
 echo
 echo Installing postfix for GitSwarm...
 yum install -y postfix > NUL
-echo Starting postfix...
 service postfix start
 chkconfig postfix on
 
@@ -120,6 +119,6 @@ chkconfig postfix on
 echo Installing Perforce Helix GitSwarm...
 gitswarmCfg=/etc/gitswarm/gitswarm.rb
 yum install -y helix-gitswarm > NUL
-sed -r "s|^external_url 'http:\/\/.*'|external_url 'http:\/\/$SERVERDNS'|" $gitswarmCfg | tee $gitswarmCfg
-#adjust time_zone line here
+sed -ir "s|^external_url 'http:\/\/.*'|external_url 'http:\/\/$SERVERDNS'|" $gitswarmCfg
+sed -ir "s|^# gitlab_rails\['time_zone'\] = 'UTC'|gitlab_rails['time_zone'] = 'EST'|" $gitswarmCfg
 gitswarm-ctl reconfigure
