@@ -12,3 +12,5 @@ To use any of these cloud init scripts while configuring an AWS instance, paste 
 `chmod 700 danware-cloud-init.bash`  
 `bash danware-cloud-init.bash`  
 `rm danware-cloud-init.bash`  
+
+To check the output of one of these scripts, view `/var/log/cloud-init-output.log` once the instance has started and passed all status checks.
