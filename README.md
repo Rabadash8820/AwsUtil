@@ -1,9 +1,9 @@
-# AWSCloudInit
-Bash scripts to be run by various AWS instance types during cloud-init.  
+## Bash Scripts
+To be run by various AWS instance types during cloud-init.  
 
 Make sure that none of these scripts contain Windows-style line endings ('\r' characters)!
 
-## Usage
+### Usage
 To use any of these cloud init scripts while configuring an AWS instance, paste the following code into its user data box.
 
 `#!/bin/bash`  
