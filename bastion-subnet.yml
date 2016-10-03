@@ -1,0 +1,403 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: A requested number of bastion hosts, each in their own public subnet
+
+Parameters:
+  NumberOfAZs:
+    Type: Number
+    Default: 1
+    AllowedValues: [ 1, 2, 3, 4, 5 ]
+    Description: The number of Availability Zones in the current region.  Too high a number will cause a stack creation failure.  Too low a number will just leave some AZs without a bastion.  Note that you will be billed for every created bastion.
+    ConstraintDescription: must be an integer between 1 and 5, inclusive.
+  NetworkStackName:
+    Description: Name of an active CloudFormation stack that contains the networking resources needed to create a bastion host in its own public subnet.
+    Type: String
+    MinLength : 1
+    MaxLength : 255
+    AllowedPattern: ^[a-zA-Z][-a-zA-Z0-9]*$
+    ConstraintDescription: must contain only alphanumeric characters and/or hyphens, and start with a letter
+    Default : DanwareVPC
+  
+Conditions:
+  AtLeast5: !Equals [ !Ref NumberOfAZs, 5 ]
+  AtLeast4: !Or [!Equals [!Ref NumberOfAZs, 4], Condition: AtLeast5]
+  AtLeast3: !Or [!Equals [!Ref NumberOfAZs, 3], Condition: AtLeast4]
+  AtLeast2: !Or [!Equals [!Ref NumberOfAZs, 2], Condition: AtLeast3]
+  AtLeast1: !Or [!Equals [!Ref NumberOfAZs, 1], Condition: AtLeast2]
+  
+Mappings:
+  AzMap:
+    us-east-1:      # N. Virginia
+      "1": us-east-1a
+      "2": us-east-1b
+      "3": us-east-1c
+      "4": us-east-1e
+    us-west-1:      # N. California
+      "1": us-west-1a
+      "2": us-west-1c
+    us-west-2:      # Oregon
+      "1": us-west-2a
+      "2": us-west-2b
+      "3": us-west-2c
+    eu-west-1:      # Ireland
+      "1": eu-west-1a
+      "2": eu-west-1b
+      "3": eu-west-1c
+    eu-central-1:   # Frankfurt
+      "1": eu-central-1a
+      "2": eu-central-1b
+    ap-northeast-1: # Tokyo
+      "1": ap-northeast-1a
+      "2": ap-northeast-1c
+    ap-northeast-2: # Seoul
+      "1": ap-northeast-2a
+      "2": ap-northeast-2c
+    ap-southeast-1: # Singapore
+      "1": ap-southeast-1a
+      "2": ap-southeast-1b
+    ap-southeast-2: # Sydney
+      "1": ap-southeast-2a
+      "2": ap-southeast-2b
+      "3": ap-southeast-2c
+    ap-south-1:     # Mumbai
+      "1": ap-south-1a
+      "2": ap-south-1b
+    sa-east-1:      # Sao Paulo
+      "1": sa-east-1a
+      "2": sa-east-1c
+  CidrMap:
+    AZ:
+      "1": 10.0.0.0/24
+      "2": 10.0.1.0/24
+      "3": 10.0.2.0/24
+      "4": 10.0.3.0/24
+      "5": 10.0.4.0/24
+  
+Resources:  
+  # Route table for the new public subnet(s)
+  PubRT:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !ImportValue MainVPC
+
+  # Network ACL for the new public subnet(s)
+  PubACL:
+    Type: AWS::EC2::NetworkAcl
+    Properties:
+      VpcId: !ImportValue MainVPC
+  InEphemeraPublic:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId:
+        Ref: PubACL
+      RuleNumber: 130
+      Egress: false
+      RuleAction: allow
+      Protocol: 6
+      PortRange:
+        From: 1024
+        To: 65535
+      CidrBlock: 0.0.0.0/0
+  InICMPPublic:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId:
+        Ref: PubACL
+      RuleNumber: 140
+      Egress: 'false'
+      RuleAction: allow
+      Protocol: 1
+      Icmp:
+        Code: "-1"
+        Type: "-1"
+      CidrBlock: 0.0.0.0/0
+  InHTTPPublic:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId:
+        Ref: PubACL
+      RuleNumber: 100
+      Egress: false
+      RuleAction: allow
+      Protocol: 6
+      CidrBlock: 0.0.0.0/0
+      PortRange:
+        From: 80
+        To: 80
+  InHTTPSPublic:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId:
+        Ref: PubACL
+      RuleNumber: 110
+      Egress: false
+      RuleAction: allow
+      Protocol: 6
+      PortRange:
+        From: 443
+        To: 443
+      CidrBlock: 0.0.0.0/0
+  InSSH0Public:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId:
+        Ref: PubACL
+      RuleNumber: 120
+      Egress: false
+      RuleAction: allow
+      Protocol: 6
+      PortRange:
+        From: 22
+        To: 22
+      CidrBlock: 107.218.90.121/32
+  InSSH1Public:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId:
+        Ref: PubACL
+      RuleNumber: 121
+      Egress: 'false'
+      RuleAction: allow
+      Protocol: 6
+      PortRange:
+        From: 22
+        To: 22
+      CidrBlock: 130.101.99.0/24
+      RuleNumber: 121
+      Egress: false
+      RuleAction: allow
+      Protocol: 6
+      PortRange:
+        From: 22
+        To: 22
+      CidrBlock: 130.101.99.0/24
+  InSSH2Public:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId:
+        Ref: PubACL
+      RuleNumber: 122
+      Egress: false
+      RuleAction: allow
+      Protocol: 6
+      PortRange:
+        From: 22
+        To: 22
+      CidrBlock: 10.20.128.0/17
+
+  OutEphemeraPublic:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId:
+        Ref: PubACL
+      RuleNumber: 130
+      Egress: true
+      RuleAction: allow
+      Protocol: 6
+      PortRange:
+        From: 1024
+        To: 65535
+      CidrBlock: 0.0.0.0/0
+  OutICMPPublic:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId:
+        Ref: PubACL
+      RuleNumber: 140
+      Egress: true
+      RuleAction: allow
+      Protocol: 1
+      Icmp:
+        Code: "-1"
+        Type: "-1"
+      CidrBlock: 0.0.0.0/0
+  OutSSHPublic:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId:
+        Ref: PubACL
+      RuleNumber: 120
+      Egress: true
+      RuleAction: allow
+      Protocol: 6
+      PortRange:
+        From: 22
+        To: 22
+      CidrBlock: 10.20.0.0/16
+  OutHTTPPublic:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId:
+        Ref: PubACL
+      RuleNumber: 100
+      Egress: true
+      RuleAction: allow
+      Protocol: 6
+      PortRange:
+        From: 80
+        To: 80
+      CidrBlock: 0.0.0.0/0
+  OutHTTPSPublic:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId:
+        Ref: PubACL
+      RuleNumber: 110
+      Egress: true
+      RuleAction: allow
+      Protocol: 6
+      PortRange:
+        From: 443
+        To: 443
+      CidrBlock: 0.0.0.0/0
+  
+  # Define the requested number of subnets
+  PubSub1:
+    Type: AWS::EC2::Subnet
+    Condition: AtLeast1
+    Properties:
+      VpcId: !ImportValue MainVPC
+      AvailabilityZone: !FindInMap [AzMap, !Ref "AWS::Region", 1]
+      CidrBlock: !FindInMap [CidrMap, AZ, 1]
+      MapPublicIpOnLaunch: true
+  PubRTAssoc1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: AtLeast1
+    Properties:
+      SubnetId: !Ref PubSub1
+      RouteTableId: !Ref PubRT
+  PubACLAssoc1:
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Condition: AtLeast1
+    Properties:
+      NetworkAclId: !Ref PubACL
+      SubnetId: !Ref PubSub1
+      
+  PubSub2:
+    Type: AWS::EC2::Subnet
+    Condition: AtLeast2
+    Properties:
+      VpcId: !ImportValue MainVPC
+      AvailabilityZone: !FindInMap [AzMap, !Ref "AWS::Region", 2]
+      CidrBlock: !FindInMap [CidrMap, AZ, 2]
+      MapPublicIpOnLaunch: true
+  PubRTAssoc2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: AtLeast2
+    Properties:
+      SubnetId: !Ref PubSub2
+      RouteTableId: !Ref PubRT
+  PubACLAssoc2:
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Condition: AtLeast2
+    Properties:
+      NetworkAclId: !Ref PubACL
+      SubnetId: !Ref PubSub2
+      
+  PubSub3:
+    Type: AWS::EC2::Subnet
+    Condition: AtLeast3
+    Properties:
+      VpcId: !ImportValue MainVPC
+      AvailabilityZone: !FindInMap [AzMap, !Ref "AWS::Region", 3]
+      CidrBlock: !FindInMap [CidrMap, AZ, 3]
+      MapPublicIpOnLaunch: true
+  PubRTAssoc3:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: AtLeast3
+    Properties:
+      SubnetId: !Ref PubSub3
+      RouteTableId: !Ref PubRT
+  PubACLAssoc3:
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Condition: AtLeast3
+    Properties:
+      NetworkAclId: !Ref PubACL
+      SubnetId: !Ref PubSub3
+      
+  PubSub4:
+    Type: AWS::EC2::Subnet
+    Condition: AtLeast4
+    Properties:
+      VpcId: !ImportValue MainVPC
+      AvailabilityZone: !FindInMap [AzMap, !Ref "AWS::Region", 4]
+      CidrBlock: !FindInMap [CidrMap, AZ, 4]
+      MapPublicIpOnLaunch: true
+  PubRTAssoc4:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: AtLeast4
+    Properties:
+      SubnetId: !Ref PubSub4
+      RouteTableId: !Ref PubRT
+  PubACLAssoc4:
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Condition: AtLeast4
+    Properties:
+      NetworkAclId: !Ref PubACL
+      SubnetId: !Ref PubSub4
+      
+  PubSub5:
+    Type: AWS::EC2::Subnet
+    Condition: AtLeast5
+    Properties:
+      VpcId: !ImportValue MainVPC
+      AvailabilityZone: !FindInMap [AzMap, !Ref "AWS::Region", 5]
+      CidrBlock: !FindInMap [CidrMap, AZ, 5]
+      MapPublicIpOnLaunch: true
+  PubRTAssoc5:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: AtLeast5
+    Properties:
+      SubnetId: !Ref PubSub5
+      RouteTableId: !Ref PubRT
+  PubACLAssoc5:
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Condition: AtLeast5
+    Properties:
+      NetworkAclId: !Ref PubACL
+      SubnetId: !Ref PubSub5
+      
+  # Define the EC2 instance(s)
+  
+Outputs:
+  PublicSubnet1:
+    Value: !Ref PubSub1
+    Condition: AtLeast1
+    Description: The ID of the new public subnet
+  PublicSubnet2:
+    Value: !Ref PubSub2
+    Condition: AtLeast2
+    Description: The ID of the new public subnet
+  PublicSubnet3:
+    Value: !Ref PubSub3
+    Condition: AtLeast3
+    Description: The ID of the new public subnet
+  PublicSubnet4:
+    Value: !Ref PubSub4
+    Condition: AtLeast4
+    Description: The ID of the new public subnet
+  PublicSubnet5:
+    Value: !Ref PubSub5
+    Condition: AtLeast5
+    Description: The ID of the new public subnet
+  Bastion1:
+    Value: 0.0.0.0
+    Condition: AtLeast1
+    Description: The IP address of the new bastion host
+  Bastion2:
+    Value: 0.0.0.0
+    Condition: AtLeast2
+    Description: The IP address of the new bastion host
+  Bastion3:
+    Value: 0.0.0.0
+    Condition: AtLeast3
+    Description: The IP address of the new bastion host
+  Bastion4:
+    Value: 0.0.0.0
+    Condition: AtLeast4
+    Description: The IP address of the new bastion host
+  Bastion5:
+    Value: 0.0.0.0
+    Condition: AtLeast5
+    Description: The IP address of the new bastion host
+  
