@@ -1,91 +1,144 @@
 AWSTemplateFormatVersion: '2010-09-09'
 
-Description: A requested number of bastion hosts, each in their own public subnet
+Description: Requested number of bastion hosts, each in their own public subnet and termination-protected
 
 Parameters:
   NumberOfAZs:
     Type: Number
-    Default: 1
-    AllowedValues: [ 1, 2, 3, 4, 5 ]
+    Default: 2
+    AllowedValues: [ 1, 2, 3, 4 ]
     Description: The number of Availability Zones in the current region.  Too high a number will cause a stack creation failure.  Too low a number will just leave some AZs without a bastion.  Note that you will be billed for every created bastion.
-    ConstraintDescription: must be an integer between 1 and 5, inclusive.
-  NetworkStackName:
-    Description: Name of an active CloudFormation stack that contains the networking resources needed to create a bastion host in its own public subnet.
+  HardenOS:
     Type: String
+    Default: true
+    AllowedValues: [ true, false]
+    Description: Hardened bastion hosts will use the latest CIS AMI to improve security.  Unhardened hosts will use the latest Amazon Linux AMI.
+  KeyPair:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: The EC2 key pair needed to connect to all new bastion hosts.
+  NetworkStackName:
+    Type: String
+    Default : MainVPC
     MinLength : 1
     MaxLength : 255
     AllowedPattern: ^[a-zA-Z][-a-zA-Z0-9]*$
+    Description: Name of an active CloudFormation stack that contains the networking resources needed to create a bastion host in its own public subnet.
     ConstraintDescription: must contain only alphanumeric characters and/or hyphens, and start with a letter
-    Default : DanwareVPC
   
 Conditions:
-  AtLeast5: !Equals [ !Ref NumberOfAZs, 5 ]
-  AtLeast4: !Or [!Equals [!Ref NumberOfAZs, 4], Condition: AtLeast5]
+  AtLeast4: !Equals [ !Ref NumberOfAZs, 4 ]
   AtLeast3: !Or [!Equals [!Ref NumberOfAZs, 3], Condition: AtLeast4]
   AtLeast2: !Or [!Equals [!Ref NumberOfAZs, 2], Condition: AtLeast3]
   AtLeast1: !Or [!Equals [!Ref NumberOfAZs, 1], Condition: AtLeast2]
+  Harden: !Equals [ !Ref HardenOS, true]
   
 Mappings:
   AzMap:
-    us-east-1:      # N. Virginia
+    us-east-1:          # N. Virginia
       "1": us-east-1a
       "2": us-east-1b
       "3": us-east-1c
       "4": us-east-1e
-    us-west-1:      # N. California
+    us-east-2:          # Ohio
+      "1": us-east-2a
+      "2": us-east-2b
+      "3": us-east-2c
+    us-west-1:          # N. California
       "1": us-west-1a
       "2": us-west-1c
-    us-west-2:      # Oregon
+    us-west-2:          # Oregon
       "1": us-west-2a
       "2": us-west-2b
       "3": us-west-2c
-    eu-west-1:      # Ireland
+    eu-west-1:          # Ireland
       "1": eu-west-1a
       "2": eu-west-1b
       "3": eu-west-1c
-    eu-central-1:   # Frankfurt
+    eu-central-1:       # Frankfurt
       "1": eu-central-1a
       "2": eu-central-1b
-    ap-northeast-1: # Tokyo
+    ap-northeast-1:     # Tokyo
       "1": ap-northeast-1a
       "2": ap-northeast-1c
-    ap-northeast-2: # Seoul
+    ap-northeast-2:     # Seoul
       "1": ap-northeast-2a
       "2": ap-northeast-2c
-    ap-southeast-1: # Singapore
+    ap-southeast-1:     # Singapore
       "1": ap-southeast-1a
       "2": ap-southeast-1b
-    ap-southeast-2: # Sydney
+    ap-southeast-2:     # Sydney
       "1": ap-southeast-2a
       "2": ap-southeast-2b
       "3": ap-southeast-2c
-    ap-south-1:     # Mumbai
+    ap-south-1:         # Mumbai
       "1": ap-south-1a
       "2": ap-south-1b
-    sa-east-1:      # Sao Paulo
+    sa-east-1:          # Sao Paulo
       "1": sa-east-1a
       "2": sa-east-1c
   CidrMap:
     AZ:
-      "1": 10.0.0.0/24
-      "2": 10.0.1.0/24
-      "3": 10.0.2.0/24
-      "4": 10.0.3.0/24
-      "5": 10.0.4.0/24
+      "1": 10.0.128.0/24
+      "2": 10.0.129.0/24
+      "3": 10.0.130.0/24
+      "4": 10.0.131.0/24
+  AmiMap:
+    us-east-1:
+      harden:      ami-4d5c0a28
+      dontHarden: ami-c481fad3
+    us-east-2:
+      harden:     ami-71ca9114      # CIS AMI not supported in Ohio
+      dontHarden: ami-71ca9114
+    us-west-1:
+      harden:      ami-4104c405
+      dontHarden: ami-de347abe
+    us-west-2:
+      harden:      ami-34866607
+      dontHarden: ami-b04e92d0
+    eu-west-1:
+      harden:      ami-2fd5e758
+      dontHarden: ami-d41d58a7
+    eu-central-1:
+      harden:      ami-5254584f
+      dontHarden: ami-0044b96f
+    ap-northeast-1:
+      harden:      ami-8c0d6d8c
+      dontHarden: ami-1a15c77b
+    ap-northeast-2:
+      harden:      ami-839b55ed
+      dontHarden: ami-a04297ce
+    ap-southeast-1:
+      harden:      ami-5c91810e
+      dontHarden: ami-7243e611
+    ap-southeast-2:
+      harden:      ami-e1f1badb
+      dontHarden: ami-55d4e436
+    ap-south-1:
+      harden:      ami-cacbbea5     # CIS AMI not supported in Mumbai
+      dontHarden: ami-cacbbea5
+    sa-east-1:
+      harden:      ami-45e77658
+      dontHarden: ami-b777e4db
   
-Resources:  
-  # Route table for the new public subnet(s)
+Resources:
+  # Route Table for the new public subnet(s)
   PubRT:
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !ImportValue MainVPC
-
+  InternetRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !ImportValue MainIGW
+      RouteTableId: !Ref PubRT
+  
   # Network ACL for the new public subnet(s)
   PubACL:
     Type: AWS::EC2::NetworkAcl
     Properties:
       VpcId: !ImportValue MainVPC
-  InEphemeraPublic:
+  InEphemeraAcl:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId:
@@ -98,7 +151,7 @@ Resources:
         From: 1024
         To: 65535
       CidrBlock: 0.0.0.0/0
-  InICMPPublic:
+  InIcmpAcl:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId:
@@ -108,10 +161,10 @@ Resources:
       RuleAction: allow
       Protocol: 1
       Icmp:
-        Code: "-1"
-        Type: "-1"
+        Code: -1
+        Type: -1
       CidrBlock: 0.0.0.0/0
-  InHTTPPublic:
+  InHttpAcl:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId:
@@ -124,7 +177,7 @@ Resources:
       PortRange:
         From: 80
         To: 80
-  InHTTPSPublic:
+  InHttpsAcl:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId:
@@ -137,7 +190,7 @@ Resources:
         From: 443
         To: 443
       CidrBlock: 0.0.0.0/0
-  InSSH0Public:
+  InSshAcl1:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId:
@@ -150,7 +203,7 @@ Resources:
         From: 22
         To: 22
       CidrBlock: 107.218.90.121/32
-  InSSH1Public:
+  InSshAcl2:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId:
@@ -163,15 +216,7 @@ Resources:
         From: 22
         To: 22
       CidrBlock: 130.101.99.0/24
-      RuleNumber: 121
-      Egress: false
-      RuleAction: allow
-      Protocol: 6
-      PortRange:
-        From: 22
-        To: 22
-      CidrBlock: 130.101.99.0/24
-  InSSH2Public:
+  InSshAcl3:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId:
@@ -183,9 +228,9 @@ Resources:
       PortRange:
         From: 22
         To: 22
-      CidrBlock: 10.20.128.0/17
+      CidrBlock: 10.0.128.0/17
 
-  OutEphemeraPublic:
+  OutEphemeraAcl:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId:
@@ -198,7 +243,7 @@ Resources:
         From: 1024
         To: 65535
       CidrBlock: 0.0.0.0/0
-  OutICMPPublic:
+  OutIcmpAcl:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId:
@@ -208,10 +253,10 @@ Resources:
       RuleAction: allow
       Protocol: 1
       Icmp:
-        Code: "-1"
-        Type: "-1"
+        Code: -1
+        Type: -1
       CidrBlock: 0.0.0.0/0
-  OutSSHPublic:
+  OutSshAcl:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId:
@@ -223,8 +268,8 @@ Resources:
       PortRange:
         From: 22
         To: 22
-      CidrBlock: 10.20.0.0/16
-  OutHTTPPublic:
+      CidrBlock: 10.0.0.0/16
+  OutHttpAcl:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId:
@@ -237,7 +282,7 @@ Resources:
         From: 80
         To: 80
       CidrBlock: 0.0.0.0/0
-  OutHTTPSPublic:
+  OutHttpsAcl:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId:
@@ -264,8 +309,8 @@ Resources:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Condition: AtLeast1
     Properties:
-      SubnetId: !Ref PubSub1
       RouteTableId: !Ref PubRT
+      SubnetId: !Ref PubSub1
   PubACLAssoc1:
     Type: AWS::EC2::SubnetNetworkAclAssociation
     Condition: AtLeast1
@@ -285,8 +330,8 @@ Resources:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Condition: AtLeast2
     Properties:
-      SubnetId: !Ref PubSub2
       RouteTableId: !Ref PubRT
+      SubnetId: !Ref PubSub2
   PubACLAssoc2:
     Type: AWS::EC2::SubnetNetworkAclAssociation
     Condition: AtLeast2
@@ -306,8 +351,8 @@ Resources:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Condition: AtLeast3
     Properties:
-      SubnetId: !Ref PubSub3
       RouteTableId: !Ref PubRT
+      SubnetId: !Ref PubSub3
   PubACLAssoc3:
     Type: AWS::EC2::SubnetNetworkAclAssociation
     Condition: AtLeast3
@@ -327,38 +372,164 @@ Resources:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Condition: AtLeast4
     Properties:
-      SubnetId: !Ref PubSub4
       RouteTableId: !Ref PubRT
+      SubnetId: !Ref PubSub4
   PubACLAssoc4:
     Type: AWS::EC2::SubnetNetworkAclAssociation
     Condition: AtLeast4
     Properties:
       NetworkAclId: !Ref PubACL
       SubnetId: !Ref PubSub4
-      
-  PubSub5:
-    Type: AWS::EC2::Subnet
-    Condition: AtLeast5
+  
+  # Security Groups for the bastion hosts
+  BastionSG:
+    Type: AWS::EC2::SecurityGroup
     Properties:
       VpcId: !ImportValue MainVPC
-      AvailabilityZone: !FindInMap [AzMap, !Ref "AWS::Region", 5]
-      CidrBlock: !FindInMap [CidrMap, AZ, 5]
-      MapPublicIpOnLaunch: true
-  PubRTAssoc5:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Condition: AtLeast5
+      GroupDescription: Allow SSH access from authorized computers, and SSH access to private subnets
+  InFromSameSg:
+    Type: AWS::EC2::SecurityGroupIngress
     Properties:
-      SubnetId: !Ref PubSub5
-      RouteTableId: !Ref PubRT
-  PubACLAssoc5:
-    Type: AWS::EC2::SubnetNetworkAclAssociation
-    Condition: AtLeast5
+      GroupId: !GetAtt BastionSG.GroupId
+      IpProtocol: -1
+      SourceSecurityGroupId: !GetAtt BastionSG.GroupId
+  InIcmpSg:
+    Type: AWS::EC2::SecurityGroupIngress
     Properties:
-      NetworkAclId: !Ref PubACL
-      SubnetId: !Ref PubSub5
-      
+      GroupId: !GetAtt BastionSG.GroupId
+      IpProtocol: icmp
+      FromPort: -1
+      ToPort: -1
+      CidrIp: 0.0.0.0/0
+  InSshSg1:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !GetAtt BastionSG.GroupId
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      CidrIp: 107.218.90.0/24
+  InSshSg2:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !GetAtt BastionSG.GroupId
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      CidrIp: 130.101.99.0/24
+  InSshSg3:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !GetAtt BastionSG.GroupId
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      CidrIp: 10.0.128.0/17
+  OutToSameSg:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !GetAtt BastionSG.GroupId
+      IpProtocol: -1
+      DestinationSecurityGroupId: !GetAtt BastionSG.GroupId
+  OutSshSg:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !GetAtt BastionSG.GroupId
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      CidrIp: 10.0.0.0/16
+    
   # Define the EC2 instance(s)
-  
+  Bastion1:
+    Type: AWS::EC2::Instance
+    Condition: AtLeast1
+    Properties:
+      DisableApiTermination: true
+      EbsOptimized: false
+      ImageId: !If [Harden, !FindInMap [AmiMap, !Ref "AWS::Region", harden], !FindInMap [AmiMap, !Ref "AWS::Region", dontHarden] ]
+      InstanceInitiatedShutdownBehavior: stop
+      InstanceType: !If [Harden, t2.micro, t2.nano]
+      KeyName: !Ref KeyPair
+      Monitoring: true
+      NetworkInterfaces:
+        - DeviceIndex: 0
+          AssociatePublicIpAddress: true
+          DeleteOnTermination: true
+          GroupSet:
+            - Ref: BastionSG
+          SubnetId: !Ref PubSub1
+          Description: Network interface for a bastion host
+      SourceDestCheck: true
+      Tenancy: default
+      UserData: ""
+  Bastion2:
+    Type: AWS::EC2::Instance
+    Condition: AtLeast2
+    Properties:
+      DisableApiTermination: true
+      EbsOptimized: false
+      ImageId: !If [Harden, !FindInMap [AmiMap, !Ref "AWS::Region", harden], !FindInMap [AmiMap, !Ref "AWS::Region", dontHarden] ]
+      InstanceInitiatedShutdownBehavior: stop
+      InstanceType: !If [Harden, t2.micro, t2.nano]
+      KeyName: !Ref KeyPair
+      Monitoring: true
+      NetworkInterfaces:
+        - DeviceIndex: 0
+          AssociatePublicIpAddress: true
+          DeleteOnTermination: true
+          GroupSet:
+            - Ref: BastionSG
+          SubnetId: !Ref PubSub2
+          Description: Network interface for a bastion host
+      SourceDestCheck: true
+      Tenancy: default
+      UserData: ""
+  Bastion3:
+    Type: AWS::EC2::Instance
+    Condition: AtLeast3
+    Properties:
+      DisableApiTermination: true
+      EbsOptimized: false
+      ImageId: !If [Harden, !FindInMap [AmiMap, !Ref "AWS::Region", harden], !FindInMap [AmiMap, !Ref "AWS::Region", dontHarden] ]
+      InstanceInitiatedShutdownBehavior: stop
+      InstanceType: !If [Harden, t2.micro, t2.nano]
+      KeyName: !Ref KeyPair
+      Monitoring: true
+      NetworkInterfaces:
+        - DeviceIndex: 0
+          AssociatePublicIpAddress: true
+          DeleteOnTermination: true
+          GroupSet:
+            - Ref: BastionSG
+          SubnetId: !Ref PubSub3
+          Description: Network interface for a bastion host
+      SourceDestCheck: true
+      Tenancy: default
+      UserData: ""
+  Bastion4:
+    Type: AWS::EC2::Instance
+    Condition: AtLeast4
+    Properties:
+      DisableApiTermination: true
+      EbsOptimized: false
+      ImageId: !If [Harden, !FindInMap [AmiMap, !Ref "AWS::Region", harden], !FindInMap [AmiMap, !Ref "AWS::Region", dontHarden] ]
+      InstanceInitiatedShutdownBehavior: stop
+      InstanceType: !If [Harden, t2.micro, t2.nano]
+      KeyName: !Ref KeyPair
+      Monitoring: true
+      NetworkInterfaces:
+        - DeviceIndex: 0
+          AssociatePublicIpAddress: true
+          DeleteOnTermination: true
+          GroupSet:
+            - Ref: BastionSG
+          SubnetId: !Ref PubSub4
+          Description: Network interface for a bastion host
+      SourceDestCheck: true
+      Tenancy: default
+      UserData: ""
+      
 Outputs:
   PublicSubnet1:
     Value: !Ref PubSub1
@@ -376,28 +547,20 @@ Outputs:
     Value: !Ref PubSub4
     Condition: AtLeast4
     Description: The ID of the new public subnet
-  PublicSubnet5:
-    Value: !Ref PubSub5
-    Condition: AtLeast5
-    Description: The ID of the new public subnet
   Bastion1:
-    Value: 0.0.0.0
+    Value: !Ref Bastion1
     Condition: AtLeast1
     Description: The IP address of the new bastion host
   Bastion2:
-    Value: 0.0.0.0
+    Value: !Ref Bastion2
     Condition: AtLeast2
     Description: The IP address of the new bastion host
   Bastion3:
-    Value: 0.0.0.0
+    Value: !Ref Bastion3
     Condition: AtLeast3
     Description: The IP address of the new bastion host
   Bastion4:
-    Value: 0.0.0.0
+    Value: !Ref Bastion4
     Condition: AtLeast4
-    Description: The IP address of the new bastion host
-  Bastion5:
-    Value: 0.0.0.0
-    Condition: AtLeast5
     Description: The IP address of the new bastion host
   

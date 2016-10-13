@@ -1,0 +1,31 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: VPC with an Internet Gateway
+
+Resources:
+  MainVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      InstanceTenancy: default
+  MainIGW:
+    Type: AWS::EC2::InternetGateway
+  IGWAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref MainIGW
+      VpcId: !Ref MainVPC
+
+Outputs:
+  MainVPC:
+    Value: !Ref MainVPC
+    Description: The ID of the new Virtual Private Cloud
+    Export:
+      Name: MainVPC
+  MainIGW:
+    Value: !Ref MainIGW
+    Description: The ID of the new Internet Gateway
+    Export:
+      Name: MainIGW
