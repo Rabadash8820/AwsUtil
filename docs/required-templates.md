@@ -7,5 +7,6 @@
 5. Domains: Route 53 hosted zones
 6. Websites: Wordpress web host in public subnet
 7. VersionControl: Perforce master server
+8. CI/CD: CodePipeline, CodeDeploy, Jenkins servers
 8. Database: RDS database
 9. Reporting: CloudTrail trails, CloudWatch metrics, SNS topics, and S3 buckets
