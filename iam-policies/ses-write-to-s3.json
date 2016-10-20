@@ -1,0 +1,23 @@
+{
+  "Version": "2008-10-17",
+  "Statement": [
+    {
+      "Sid": "GiveSESPermissionToWriteEmail",
+      "Effect": "Allow",
+      "Principal": {
+        "Service": [
+          "ses.amazonaws.com"
+        ]
+      },
+      "Action": [
+        "s3:PutObject"
+      ],
+      "Resource": "arn:aws:s3:::danware-mail/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:Referer": "915144628597"
+        }
+      }
+    }
+  ]
+}
