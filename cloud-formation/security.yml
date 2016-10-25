@@ -1,0 +1,299 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: IAM principals, and an Active Directory
+
+Metadata:
+  AWS::CloudFormation::Interface: 
+    ParameterGroups:
+      - Parameters:
+          - NetworkStackName
+      - Label:
+          default: IAM User Passwords
+        Parameters:
+          - AdminPassword
+          - KmsManagerPassword
+      - Label:
+          default: Simple AD Configuration
+        Parameters: 
+          - DirectoryName
+          - DirectoryNetbiosName
+          - DirectoryPassword
+
+Parameters:
+  NetworkStackName:
+    Type: String
+    Default: MainVPC
+    MinLength: 1
+    MaxLength: 255
+    AllowedPattern: ^[a-zA-Z][-a-zA-Z0-9]*$
+    Description: Name of an active CloudFormation stack that contains the networking resources needed to create a bastion host in its own public subnet.
+    ConstraintDescription: must contain only alphanumeric characters and/or hyphens, and start with a letter
+  AdminPassword:
+    Type: String
+    NoEcho: true
+    Description: The password for the administrator IAM user.
+    ConstraintDescription: must conform to this AWS account's password policy, if any.
+  KmsManagerPassword:
+    Type: String
+    NoEcho: true
+    Description: The password for the administrator IAM user.
+    ConstraintDescription: must conform to this AWS account's password policy, if any.
+  DirectoryName:
+    Type: String
+    Default: my-company
+    MinLength: 1
+    MaxLength: 255
+    AllowedPattern: ^([a-zA-Z0-9]+[\\.-])+([a-zA-Z0-9])+$
+    Description: A fully qualified domain name (for example, corp.example.com). This name will resolve inside your VPC only. It does not need to be publicly resolvable.
+    ConstraintDescription: must contain only alphanumeric characters and/or hyphens, and start with a letter
+  DirectoryNetbiosName:
+    Type: String
+    Default: CORP
+    MinLength: 1
+    MaxLength: 15
+    AllowedPattern: ^[^\\/:*?\"\<\>|.]+[^\\/:*?\"<>|]*$
+    Description: The NetBIOS name for your domain. This value must be 15 characters or less.
+    ConstraintDescription: must contain only alphanumeric characters and/or hyphens, and start with a letter
+  DirectoryPassword:
+    Type: String
+    NoEcho: true
+    AllowedPattern: (?=^.{8,64}$)((?=.*\d)(?=.*[A-Z])(?=.*[a-z])|(?=.*\d)(?=.*[^A-Za-z0-9\s])(?=.*[a-z])|(?=.*[^A-Za-z0-9\s])(?=.*[A-Z])(?=.*[a-z])|(?=.*\d)(?=.*[A-Z])(?=.*[^A-Za-z0-9\s]))^.*
+    Description: The password for the default directory administrative user.
+    ConstraintDescription: "must have an 8-character minimum with at least one character having at least three of these attributes: lowercase, uppercase, numeric, and special characters."
+  
+Mappings:
+  AzMap:
+    us-east-1:          # N. Virginia
+      "1": us-east-1a
+      "2": us-east-1b
+    us-east-2:          # Ohio
+      "1": us-east-2a
+      "2": us-east-2b
+    us-west-1:          # N. California
+      "1": us-west-1a
+      "2": us-west-1c
+    us-west-2:          # Oregon
+      "1": us-west-2a
+      "2": us-west-2b
+    eu-west-1:          # Ireland
+      "1": eu-west-1a
+      "2": eu-west-1b
+    eu-central-1:       # Frankfurt
+      "1": eu-central-1a
+      "2": eu-central-1b
+    ap-northeast-1:     # Tokyo
+      "1": ap-northeast-1a
+      "2": ap-northeast-1c
+    ap-northeast-2:     # Seoul
+      "1": ap-northeast-2a
+      "2": ap-northeast-2c
+    ap-southeast-1:     # Singapore
+      "1": ap-southeast-1a
+      "2": ap-southeast-1b
+    ap-southeast-2:     # Sydney
+      "1": ap-southeast-2a
+      "2": ap-southeast-2b
+    ap-south-1:         # Mumbai
+      "1": ap-south-1a
+      "2": ap-south-1b
+    sa-east-1:          # Sao Paulo
+      "1": sa-east-1a
+      "2": sa-east-1c
+  CidrMap:
+    AZ:
+      "1": 10.0.140.0/24
+      "2": 10.0.141.0/24
+
+Resources:
+  # IAM Groups, each with a new user
+  AdminGroup:
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: !Join ["-", [ !Ref "AWS::Region", "admins" ] ]
+      Path: /admins/
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+  AdminUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: !Join ["-", [ !Ref "AWS::Region", "admin" ] ]
+      Path: /admins/admin/
+      Groups: [ !Ref AdminGroup ]
+      LoginProfile:
+        Password: !Ref AdminPassword
+        PasswordResetRequired: false
+  PowerUserGroup:
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: !Join ["-", [ !Ref "AWS::Region", "power-users" ] ]
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/PowerUserAccess
+      Path: /power-users/
+  PowerUserMinusPortalGroup:
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: !Join ["-", [ !Ref "AWS::Region", "power-users-minus-portal" ] ]
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/PowerUserAccess
+      Path: /power-users-minus-portal/
+      Policies:
+      - PolicyName: DenyAccessToAwsPortal
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+            Effect: Deny
+            Action: "aws-portal:*"
+            Resource: "*"
+  ReadOnlyGroup:
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: !Join ["-", [ !Ref "AWS::Region", "read-only-users" ] ]
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/ReadOnlyAccess
+      Path: /read-only/
+  KmsGroup:
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: !Join ["-", [ !Ref "AWS::Region", "kms-managers" ] ]
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/AWSKeyManagementServicePowerUser
+      Path: /kms/
+  KmsUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: !Join ["-", [ !Ref "AWS::Region", "kms-manager" ] ]
+      Path: /kms/manager/
+      Groups: [ !Ref KmsGroup ]
+      LoginProfile:
+        Password: !Ref KmsManagerPassword
+        PasswordResetRequired: false
+        
+  # Route Table for the new public subnet(s)
+  PubRT:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !ImportValue MainVPC
+  InternetRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !ImportValue MainIGW
+      RouteTableId: !Ref PubRT
+  
+  # Network ACL for the new public subnet(s)
+  PubACL:
+    Type: AWS::EC2::NetworkAcl
+    Properties:
+      VpcId: !ImportValue MainVPC
+  InEphemeraAcl:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref PubACL
+      RuleNumber: 130
+      Egress: false
+      RuleAction: allow
+      Protocol: 6
+      PortRange: { From: 1024, To: 65535 }
+      CidrBlock: 0.0.0.0/0
+  InIcmpAcl:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref PubACL
+      RuleNumber: 140
+      Egress: false
+      RuleAction: allow
+      Protocol: 1
+      Icmp: { Code: -1, Type: -1 }
+      CidrBlock: 0.0.0.0/0
+  OutIcmpAcl:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref PubACL
+      RuleNumber: 140
+      Egress: true
+      RuleAction: allow
+      Protocol: 1
+      Icmp: { Code: -1, Type: -1 }
+      CidrBlock: 0.0.0.0/0
+  
+  # Define the two subnets in different Availability Zones
+  DirectorySubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !ImportValue MainVPC
+      AvailabilityZone: !FindInMap [AzMap, !Ref "AWS::Region", 1]
+      CidrBlock: !FindInMap [CidrMap, AZ, 1]
+      MapPublicIpOnLaunch: true
+  RTAssoc1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PubRT
+      SubnetId: !Ref DirectorySubnet1
+  ACLAssoc1:
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId: !Ref PubACL
+      SubnetId: !Ref DirectorySubnet1
+      
+  DirectorySubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !ImportValue MainVPC
+      AvailabilityZone: !FindInMap [AzMap, !Ref "AWS::Region", 2]
+      CidrBlock: !FindInMap [CidrMap, AZ, 2]
+      MapPublicIpOnLaunch: true
+  RTAssoc2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PubRT
+      SubnetId: !Ref DirectorySubnet2
+  ACLAssoc2:
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId: !Ref PubACL
+      SubnetId: !Ref DirectorySubnet2
+      
+  # Active Directory
+  MainAD:
+    Type: AWS::DirectoryService::SimpleAD
+    Properties: 
+      Description: A Samba 4 Active Directory Compatible Server for the company.
+      EnableSso: false  # Single sign-on for computers connected to the AD (like WorkSpaces)
+      Name: !Ref DirectoryName
+      ShortName: !Ref DirectoryNetbiosName
+      Password: !Ref DirectoryPassword
+      Size: Small
+      VpcSettings:
+        VpcId: !ImportValue MainVPC
+        SubnetIds:
+        - !Ref DirectorySubnet1
+        - !Ref DirectorySubnet2
+        
+  # KMS keys for associated applications (WorkMail, e.g.)
+  WorkMailKey:
+    Type: AWS::KMS::Key
+    Properties: 
+      Enabled: true
+      EnableKeyRotation: true
+      Description: Protects WorkMail mailboxes for the company.
+      KeyPolicy:
+        Version: 2012-10-17
+        Statement:
+          - Sid: Allow administration of the key
+            Effect: Allow
+            Principal:
+              AWS:
+              - !Ref KmsUser
+              - !Ref AdminUser
+            Action: "kms:*"
+            Resource: "*"
+  WorkMailKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: WorkMailKey
+      TargetKeyId: !Ref WorkMailKey
+            
+Outputs:
+  ActiveDirectory:
+    Value: !Ref MainAD
+    Description: The ID of the new Active Directory 
