@@ -4,6 +4,7 @@ AwsOperationsContact devops@danwarecreations.com
 DnsRegistrantContact devops@danwarecreations.com  
 DnsAdministrativeContact devops@danwarecreations.com  
 DnsTechnicalContact devops@danwarecreations.com  
+listingdomsearch.com devops@danwarecreations.com
 GitHub devops@danwarecreations.com  
 Microsoft devops@danwarecreations.com  
 Unity devops@danwarecreations.com  
