@@ -1,4 +1,4 @@
-AWSTemplateFormatVersion: '2010-09-09'
+AWSTemplateFormatVersion: 2010-09-09
 
 Description: Requested number of bastion hosts, each in their own public subnet and termination-protected
 
@@ -141,163 +141,127 @@ Resources:
   InEphemeraAcl:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
-      NetworkAclId:
-        Ref: PubACL
+      NetworkAclId: !Ref: PubACL
       RuleNumber: 130
       Egress: false
       RuleAction: allow
       Protocol: 6
-      PortRange:
-        From: 1024
-        To: 65535
+      PortRange: { From: 1024, To: 65535 }
       CidrBlock: 0.0.0.0/0
   InIcmpAcl:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
-      NetworkAclId:
-        Ref: PubACL
+      NetworkAclId: !Ref: PubACL
       RuleNumber: 140
-      Egress: 'false'
+      Egress: false
       RuleAction: allow
       Protocol: 1
-      Icmp:
-        Code: -1
-        Type: -1
+      Icmp: { Code: -1, Type: -1 }
       CidrBlock: 0.0.0.0/0
   InHttpAcl:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
-      NetworkAclId:
-        Ref: PubACL
+      NetworkAclId: !Ref: PubACL
       RuleNumber: 100
       Egress: false
       RuleAction: allow
       Protocol: 6
       CidrBlock: 0.0.0.0/0
-      PortRange:
-        From: 80
-        To: 80
+      PortRange: { From: 80, To: 80 }
   InHttpsAcl:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
-      NetworkAclId:
-        Ref: PubACL
+      NetworkAclId: !Ref: PubACL
       RuleNumber: 110
       Egress: false
       RuleAction: allow
       Protocol: 6
-      PortRange:
-        From: 443
-        To: 443
+      PortRange: { From: 443, To: 443 }
       CidrBlock: 0.0.0.0/0
   InSshAcl1:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
-      NetworkAclId:
-        Ref: PubACL
+      NetworkAclId: !Ref: PubACL
       RuleNumber: 120
       Egress: false
       RuleAction: allow
       Protocol: 6
-      PortRange:
-        From: 22
-        To: 22
+      PortRange: { From: 22, To: 22 }
       CidrBlock: 107.218.90.121/32
   InSshAcl2:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
-      NetworkAclId:
-        Ref: PubACL
+      NetworkAclId: !Ref: PubACL
       RuleNumber: 121
-      Egress: 'false'
+      Egress: false
       RuleAction: allow
       Protocol: 6
-      PortRange:
-        From: 22
-        To: 22
+      PortRange: { From: 22, To: 22 }
       CidrBlock: 130.101.99.0/24
   InSshAcl3:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
-      NetworkAclId:
-        Ref: PubACL
+      NetworkAclId: !Ref: PubACL
       RuleNumber: 122
       Egress: false
       RuleAction: allow
       Protocol: 6
-      PortRange:
-        From: 22
-        To: 22
+      PortRange: { From: 22, To: 22 }
       CidrBlock: 10.0.128.0/17
 
   OutEphemeraAcl:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
-      NetworkAclId:
-        Ref: PubACL
+      NetworkAclId: !Ref: PubACL
       RuleNumber: 130
       Egress: true
       RuleAction: allow
       Protocol: 6
-      PortRange:
-        From: 1024
-        To: 65535
+      PortRange: { From: 1024, To: 65535 }
       CidrBlock: 0.0.0.0/0
   OutIcmpAcl:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
-      NetworkAclId:
-        Ref: PubACL
+      NetworkAclId: !Ref: PubACL
       RuleNumber: 140
       Egress: true
       RuleAction: allow
       Protocol: 1
-      Icmp:
-        Code: -1
-        Type: -1
+      Icmp: { Code: -1, Type: -1 }
       CidrBlock: 0.0.0.0/0
   OutSshAcl:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
-      NetworkAclId:
-        Ref: PubACL
+      NetworkAclId: !Ref: PubACL
       RuleNumber: 120
       Egress: true
       RuleAction: allow
       Protocol: 6
-      PortRange:
-        From: 22
-        To: 22
+      PortRange: { From: 22, To: 22 }
       CidrBlock: 10.0.0.0/16
   OutHttpAcl:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
-      NetworkAclId:
-        Ref: PubACL
+      NetworkAclId: !Ref: PubACL
       RuleNumber: 100
       Egress: true
       RuleAction: allow
       Protocol: 6
-      PortRange:
-        From: 80
-        To: 80
+      PortRange: { From: 80, To: 80 }
       CidrBlock: 0.0.0.0/0
   OutHttpsAcl:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
-      NetworkAclId:
-        Ref: PubACL
+      NetworkAclId: !Ref: PubACL
       RuleNumber: 110
       Egress: true
       RuleAction: allow
       Protocol: 6
-      PortRange:
-        From: 443
-        To: 443
+      PortRange: { From: 443, To: 443 }
       CidrBlock: 0.0.0.0/0
   
   # Define the requested number of subnets
-  PubSub1:
+  Subnet1:
     Type: AWS::EC2::Subnet
     Condition: AtLeast1
     Properties:
@@ -305,20 +269,20 @@ Resources:
       AvailabilityZone: !FindInMap [AzMap, !Ref "AWS::Region", 1]
       CidrBlock: !FindInMap [CidrMap, AZ, 1]
       MapPublicIpOnLaunch: true
-  PubRTAssoc1:
+  RTAssoc1:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Condition: AtLeast1
     Properties:
       RouteTableId: !Ref PubRT
-      SubnetId: !Ref PubSub1
-  PubACLAssoc1:
+      SubnetId: !Ref Subnet1
+  ACLAssoc1:
     Type: AWS::EC2::SubnetNetworkAclAssociation
     Condition: AtLeast1
     Properties:
       NetworkAclId: !Ref PubACL
-      SubnetId: !Ref PubSub1
+      SubnetId: !Ref Subnet1
       
-  PubSub2:
+  Subnet2:
     Type: AWS::EC2::Subnet
     Condition: AtLeast2
     Properties:
@@ -326,20 +290,20 @@ Resources:
       AvailabilityZone: !FindInMap [AzMap, !Ref "AWS::Region", 2]
       CidrBlock: !FindInMap [CidrMap, AZ, 2]
       MapPublicIpOnLaunch: true
-  PubRTAssoc2:
+  RTAssoc2:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Condition: AtLeast2
     Properties:
       RouteTableId: !Ref PubRT
-      SubnetId: !Ref PubSub2
-  PubACLAssoc2:
+      SubnetId: !Ref Subnet2
+  ACLAssoc2:
     Type: AWS::EC2::SubnetNetworkAclAssociation
     Condition: AtLeast2
     Properties:
       NetworkAclId: !Ref PubACL
-      SubnetId: !Ref PubSub2
+      SubnetId: !Ref Subnet2
       
-  PubSub3:
+  Subnet3:
     Type: AWS::EC2::Subnet
     Condition: AtLeast3
     Properties:
@@ -347,20 +311,20 @@ Resources:
       AvailabilityZone: !FindInMap [AzMap, !Ref "AWS::Region", 3]
       CidrBlock: !FindInMap [CidrMap, AZ, 3]
       MapPublicIpOnLaunch: true
-  PubRTAssoc3:
+  RTAssoc3:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Condition: AtLeast3
     Properties:
       RouteTableId: !Ref PubRT
-      SubnetId: !Ref PubSub3
-  PubACLAssoc3:
+      SubnetId: !Ref Subnet3
+  ACLAssoc3:
     Type: AWS::EC2::SubnetNetworkAclAssociation
     Condition: AtLeast3
     Properties:
       NetworkAclId: !Ref PubACL
-      SubnetId: !Ref PubSub3
+      SubnetId: !Ref Subnet3
       
-  PubSub4:
+  Subnet4:
     Type: AWS::EC2::Subnet
     Condition: AtLeast4
     Properties:
@@ -368,78 +332,59 @@ Resources:
       AvailabilityZone: !FindInMap [AzMap, !Ref "AWS::Region", 4]
       CidrBlock: !FindInMap [CidrMap, AZ, 4]
       MapPublicIpOnLaunch: true
-  PubRTAssoc4:
+  RTAssoc4:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Condition: AtLeast4
     Properties:
       RouteTableId: !Ref PubRT
-      SubnetId: !Ref PubSub4
-  PubACLAssoc4:
+      SubnetId: !Ref Subnet4
+  ACLAssoc4:
     Type: AWS::EC2::SubnetNetworkAclAssociation
     Condition: AtLeast4
     Properties:
       NetworkAclId: !Ref PubACL
-      SubnetId: !Ref PubSub4
+      SubnetId: !Ref Subnet4
   
-  # Security Groups for the bastion hosts
+  # Security Group for the bastion hosts
   BastionSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
       VpcId: !ImportValue MainVPC
       GroupDescription: Allow SSH access from authorized computers, and SSH access to private subnets
-  InFromSameSg:
-    Type: AWS::EC2::SecurityGroupIngress
-    Properties:
-      GroupId: !GetAtt BastionSG.GroupId
-      IpProtocol: -1
-      SourceSecurityGroupId: !GetAtt BastionSG.GroupId
-  InIcmpSg:
-    Type: AWS::EC2::SecurityGroupIngress
-    Properties:
-      GroupId: !GetAtt BastionSG.GroupId
-      IpProtocol: icmp
-      FromPort: -1
-      ToPort: -1
-      CidrIp: 0.0.0.0/0
-  InSshSg1:
-    Type: AWS::EC2::SecurityGroupIngress
-    Properties:
-      GroupId: !GetAtt BastionSG.GroupId
-      IpProtocol: tcp
-      FromPort: 22
-      ToPort: 22
-      CidrIp: 107.218.90.0/24
-  InSshSg2:
-    Type: AWS::EC2::SecurityGroupIngress
-    Properties:
-      GroupId: !GetAtt BastionSG.GroupId
-      IpProtocol: tcp
-      FromPort: 22
-      ToPort: 22
-      CidrIp: 130.101.99.0/24
-  InSshSg3:
-    Type: AWS::EC2::SecurityGroupIngress
-    Properties:
-      GroupId: !GetAtt BastionSG.GroupId
-      IpProtocol: tcp
-      FromPort: 22
-      ToPort: 22
-      CidrIp: 10.0.128.0/17
-  OutToSameSg:
-    Type: AWS::EC2::SecurityGroupEgress
-    Properties:
-      GroupId: !GetAtt BastionSG.GroupId
-      IpProtocol: -1
-      DestinationSecurityGroupId: !GetAtt BastionSG.GroupId
-  OutSshSg:
-    Type: AWS::EC2::SecurityGroupEgress
-    Properties:
-      GroupId: !GetAtt BastionSG.GroupId
-      IpProtocol: tcp
-      FromPort: 22
-      ToPort: 22
-      CidrIp: 10.0.0.0/16
-    
+      SecurityGroupIngress:
+        - # All traffic from same Security Group
+          IpProtocol: -1
+          SourceSecurityGroupId: !GetAtt BastionSG.GroupId
+        - # ICMP traffic from anywhere
+          IpProtocol: icmp
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
+        - # SSH from Vicarel home
+          IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 107.218.90.0/24
+        - # SSH from Renna lab
+          IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 130.101.99.0/24
+        - # SSH from public subnets
+          IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 10.0.128.0/17
+      SecurityGroupEgress:
+        - # All traffic to same Security Group
+          IpProtocol: -1
+          DestinationSecurityGroupId: !GetAtt BastionSG.GroupId
+        - # SSH into private subnets
+          IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 10.0.0.0/16
+          
   # Define the EC2 instance(s)
   Bastion1:
     Type: AWS::EC2::Instance
@@ -456,9 +401,8 @@ Resources:
         - DeviceIndex: 0
           AssociatePublicIpAddress: true
           DeleteOnTermination: true
-          GroupSet:
-            - Ref: BastionSG
-          SubnetId: !Ref PubSub1
+          GroupSet: [ !Ref BastionSG ]
+          SubnetId: !Ref Subnet1
           Description: Network interface for a bastion host
       SourceDestCheck: true
       Tenancy: default
@@ -478,9 +422,8 @@ Resources:
         - DeviceIndex: 0
           AssociatePublicIpAddress: true
           DeleteOnTermination: true
-          GroupSet:
-            - Ref: BastionSG
-          SubnetId: !Ref PubSub2
+          GroupSet: [ !Ref BastionSG ]
+          SubnetId: !Ref Subnet2
           Description: Network interface for a bastion host
       SourceDestCheck: true
       Tenancy: default
@@ -500,9 +443,8 @@ Resources:
         - DeviceIndex: 0
           AssociatePublicIpAddress: true
           DeleteOnTermination: true
-          GroupSet:
-            - Ref: BastionSG
-          SubnetId: !Ref PubSub3
+          GroupSet: [ !Ref BastionSG ]
+          SubnetId: !Ref Subnet3
           Description: Network interface for a bastion host
       SourceDestCheck: true
       Tenancy: default
@@ -522,45 +464,28 @@ Resources:
         - DeviceIndex: 0
           AssociatePublicIpAddress: true
           DeleteOnTermination: true
-          GroupSet:
-            - Ref: BastionSG
-          SubnetId: !Ref PubSub4
+          GroupSet: [ !Ref BastionSG ]
+          SubnetId: !Ref Subnet4
           Description: Network interface for a bastion host
       SourceDestCheck: true
       Tenancy: default
       UserData: ""
       
 Outputs:
-  PublicSubnet1:
-    Value: !Ref PubSub1
-    Condition: AtLeast1
-    Description: The ID of the new public subnet
-  PublicSubnet2:
-    Value: !Ref PubSub2
-    Condition: AtLeast2
-    Description: The ID of the new public subnet
-  PublicSubnet3:
-    Value: !Ref PubSub3
-    Condition: AtLeast3
-    Description: The ID of the new public subnet
-  PublicSubnet4:
-    Value: !Ref PubSub4
-    Condition: AtLeast4
-    Description: The ID of the new public subnet
   Bastion1:
-    Value: !Ref Bastion1
+    Value: !GetAtt Bastion1.PublicIp
     Condition: AtLeast1
-    Description: The IP address of the new bastion host
+    Description: The public IP address of the new bastion host
   Bastion2:
-    Value: !Ref Bastion2
+    Value: !GetAtt Bastion2.PublicIp
     Condition: AtLeast2
-    Description: The IP address of the new bastion host
+    Description: The public IP address of the new bastion host
   Bastion3:
-    Value: !Ref Bastion3
+    Value: !GetAtt Bastion3.PublicIp
     Condition: AtLeast3
-    Description: The IP address of the new bastion host
+    Description: The public IP address of the new bastion host
   Bastion4:
-    Value: !Ref Bastion4
+    Value: !GetAtt Bastion4.PublicIp
     Condition: AtLeast4
-    Description: The IP address of the new bastion host
+    Description: The public IP address of the new bastion host
   
