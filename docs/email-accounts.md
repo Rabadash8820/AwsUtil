@@ -27,4 +27,4 @@ Support support@danwarecreations.com
 Careers careers@danwarecreations.com  
 Newsletter news@danwarecreations.com  
 SkeliaSupport skeliasupport@danwarecreations.com  
-BatchEmails info@danwarecreations.com  
+BatchEmails noreply@danwarecreations.com  
