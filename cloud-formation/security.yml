@@ -7,11 +7,7 @@ Metadata:
     ParameterGroups:
       - Parameters:
           - NetworkStackName
-      - Label:
-          default: IAM User Passwords
-        Parameters:
           - AdminPassword
-          - KmsManagerPassword
       - Label:
           default: Simple AD Configuration
         Parameters: 
@@ -33,14 +29,9 @@ Parameters:
     NoEcho: true
     Description: The password for the administrator IAM user.
     ConstraintDescription: must conform to this AWS account's password policy, if any.
-  KmsManagerPassword:
-    Type: String
-    NoEcho: true
-    Description: The password for the administrator IAM user.
-    ConstraintDescription: must conform to this AWS account's password policy, if any.
   DirectoryName:
     Type: String
-    Default: my-company
+    Default: corp.example.com
     MinLength: 1
     MaxLength: 255
     AllowedPattern: ^([a-zA-Z0-9]+[\\.-])+([a-zA-Z0-9])+$
@@ -158,15 +149,6 @@ Resources:
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/AWSKeyManagementServicePowerUser
       Path: /kms/
-  KmsUser:
-    Type: AWS::IAM::User
-    Properties:
-      UserName: !Join ["-", [ !Ref "AWS::Region", "kms-manager" ] ]
-      Path: /kms/manager/
-      Groups: [ !Ref KmsGroup ]
-      LoginProfile:
-        Password: !Ref KmsManagerPassword
-        PasswordResetRequired: false
         
   # Route Table for the new public subnet(s)
   PubRT:
@@ -268,30 +250,6 @@ Resources:
         SubnetIds:
         - !Ref DirectorySubnet1
         - !Ref DirectorySubnet2
-        
-  # KMS keys for associated applications (WorkMail, e.g.)
-  WorkMailKey:
-    Type: AWS::KMS::Key
-    Properties: 
-      Enabled: true
-      EnableKeyRotation: true
-      Description: Protects WorkMail mailboxes for the company.
-      KeyPolicy:
-        Version: 2012-10-17
-        Statement:
-          - Sid: Allow administration of the key
-            Effect: Allow
-            Principal:
-              AWS:
-              - !Ref KmsUser
-              - !Ref AdminUser
-            Action: "kms:*"
-            Resource: "*"
-  WorkMailKeyAlias:
-    Type: AWS::KMS::Alias
-    Properties:
-      AliasName: WorkMailKey
-      TargetKeyId: !Ref WorkMailKey
             
 Outputs:
   ActiveDirectory:
