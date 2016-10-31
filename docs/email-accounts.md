@@ -15,12 +15,13 @@ Finale devops@danwarecreations.com receive
 # Social Media
 Facebook social@danwarecreations.com receive  
 Twitter social@danwarecreations.com receive  
-Google social@danwarecreations.com receive  
+Google/YouTube danwarecreations@gmail.com receive  
 
 # Finances
 AwsBillingContact finance@danwarecreations.com receive  
 Patreon finance@danwarecreations.com receive  
 PayPal finance@danwarecreations.com receive  
+KickStarter finance@danwarecreations.com receive  
 
 # Public Relations
 Support support@danwarecreations.com send/receive  
