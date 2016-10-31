@@ -26,5 +26,4 @@ PayPal finance@danwarecreations.com
 Support support@danwarecreations.com  
 Careers careers@danwarecreations.com  
 Newsletter news@danwarecreations.com  
-SkeliaSupport skeliasupport@danwarecreations.com  
-BatchEmails noreply@danwarecreations.com  
+BatchEmails do_not_reply@danwarecreations.com  
