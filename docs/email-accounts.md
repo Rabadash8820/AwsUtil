@@ -1,3 +1,6 @@
+# AWS Root Email
+AwsRoot danwarecreations@gmail.com
+
 # DevOps
 AwsSecurityContact devops@danwarecreations.com receive  
 AwsOperationsContact devops@danwarecreations.com receive  
