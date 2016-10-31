@@ -7,7 +7,6 @@ AwsOperationsContact devops@danwarecreations.com receive
 DnsRegistrantContact devops@danwarecreations.com receive  
 DnsAdministrativeContact devops@danwarecreations.com receive  
 DnsTechnicalContact devops@danwarecreations.com receive  
-listingdomsearch.com devops@danwarecreations.com receive
 GitHub devops@danwarecreations.com receive  
 Microsoft devops@danwarecreations.com receive  
 Unity devops@danwarecreations.com receive  
