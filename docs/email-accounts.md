@@ -7,7 +7,6 @@ AwsOperationsContact devops@danwarecreations.com receive
 DnsRegistrantContact devops@danwarecreations.com receive  
 DnsAdministrativeContact devops@danwarecreations.com receive  
 DnsTechnicalContact devops@danwarecreations.com receive  
-GitHub devops@danwarecreations.com receive  
 Microsoft devops@danwarecreations.com receive  
 Unity devops@danwarecreations.com receive  
 Adobe devops@danwarecreations.com receive  
@@ -21,6 +20,7 @@ Google/YouTube danwarecreations@gmail.com receive
 
 # Finances
 AwsBillingContact finance@danwarecreations.com receive  
+GitHubBillingContact finance@danwarecreations.com receive  
 Patreon finance@danwarecreations.com receive  
 PayPal finance@danwarecreations.com receive  
 KickStarter finance@danwarecreations.com receive  
