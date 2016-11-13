@@ -84,41 +84,53 @@ Mappings:
       "4": 10.0.131.0/24
   AmiMap:
     us-east-1:
-      harden:      ami-4d5c0a28
-      dontHarden: ami-c481fad3
+      harden:     ami-4d5c0a28
+      dontHarden: ami-b73b63a0
     us-east-2:
       harden:     ami-71ca9114      # CIS AMI not supported in Ohio
-      dontHarden: ami-71ca9114
+      dontHarden: ami-58277d3d
     us-west-1:
-      harden:      ami-4104c405
-      dontHarden: ami-de347abe
+      harden:     ami-4104c405
+      dontHarden: ami-23e8a343
     us-west-2:
-      harden:      ami-34866607
-      dontHarden: ami-b04e92d0
+      harden:     ami-34866607
+      dontHarden: ami-5ec1673e
     eu-west-1:
-      harden:      ami-2fd5e758
-      dontHarden: ami-d41d58a7
+      harden:     ami-2fd5e758
+      dontHarden: ami-9398d3e0
     eu-central-1:
-      harden:      ami-5254584f
-      dontHarden: ami-0044b96f
+      harden:     ami-5254584f
+      dontHarden: ami-f9619996
     ap-northeast-1:
-      harden:      ami-8c0d6d8c
-      dontHarden: ami-1a15c77b
+      harden:     ami-8c0d6d8c
+      dontHarden: ami-0c11b26d
     ap-northeast-2:
-      harden:      ami-839b55ed
-      dontHarden: ami-a04297ce
+      harden:     ami-839b55ed
+      dontHarden: ami-983ce8f6
     ap-southeast-1:
-      harden:      ami-5c91810e
-      dontHarden: ami-7243e611
+      harden:     ami-5c91810e
+      dontHarden: ami-b953f2da
     ap-southeast-2:
-      harden:      ami-e1f1badb
-      dontHarden: ami-55d4e436
+      harden:     ami-e1f1badb
+      dontHarden: ami-db704cb8
     ap-south-1:
-      harden:      ami-cacbbea5     # CIS AMI not supported in Mumbai
-      dontHarden: ami-cacbbea5
+      harden:     ami-cacbbea5     # CIS AMI not supported in Mumbai
+      dontHarden: ami-34b4c05b
     sa-east-1:
-      harden:      ami-45e77658
-      dontHarden: ami-b777e4db
+      harden:     ami-45e77658
+      dontHarden: ami-97831ffb
+  StringsMap:
+    UserData:
+      bash: |
+        #!/bin/bash
+        
+        # Add a newline to the ec2-user prompt string
+        echo PS1="\"\\n\$PS1\"">> /home/ec2-user/.bashrc
+
+        # Update all packages
+        echo
+        echo Updating all YUM packages...
+        yum update -y > NUL
   
 Resources:
   # Route Table for the new public subnet(s)
@@ -141,7 +153,7 @@ Resources:
   InEphemeraAcl:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
-      NetworkAclId: !Ref: PubACL
+      NetworkAclId: !Ref PubACL
       RuleNumber: 130
       Egress: false
       RuleAction: allow
@@ -151,7 +163,7 @@ Resources:
   InIcmpAcl:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
-      NetworkAclId: !Ref: PubACL
+      NetworkAclId: !Ref PubACL
       RuleNumber: 140
       Egress: false
       RuleAction: allow
@@ -161,7 +173,7 @@ Resources:
   InHttpAcl:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
-      NetworkAclId: !Ref: PubACL
+      NetworkAclId: !Ref PubACL
       RuleNumber: 100
       Egress: false
       RuleAction: allow
@@ -171,7 +183,7 @@ Resources:
   InHttpsAcl:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
-      NetworkAclId: !Ref: PubACL
+      NetworkAclId: !Ref PubACL
       RuleNumber: 110
       Egress: false
       RuleAction: allow
@@ -181,7 +193,7 @@ Resources:
   InSshAcl1:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
-      NetworkAclId: !Ref: PubACL
+      NetworkAclId: !Ref PubACL
       RuleNumber: 120
       Egress: false
       RuleAction: allow
@@ -191,7 +203,7 @@ Resources:
   InSshAcl2:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
-      NetworkAclId: !Ref: PubACL
+      NetworkAclId: !Ref PubACL
       RuleNumber: 121
       Egress: false
       RuleAction: allow
@@ -201,7 +213,7 @@ Resources:
   InSshAcl3:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
-      NetworkAclId: !Ref: PubACL
+      NetworkAclId: !Ref PubACL
       RuleNumber: 122
       Egress: false
       RuleAction: allow
@@ -212,7 +224,7 @@ Resources:
   OutEphemeraAcl:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
-      NetworkAclId: !Ref: PubACL
+      NetworkAclId: !Ref PubACL
       RuleNumber: 130
       Egress: true
       RuleAction: allow
@@ -222,7 +234,7 @@ Resources:
   OutIcmpAcl:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
-      NetworkAclId: !Ref: PubACL
+      NetworkAclId: !Ref PubACL
       RuleNumber: 140
       Egress: true
       RuleAction: allow
@@ -232,7 +244,7 @@ Resources:
   OutSshAcl:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
-      NetworkAclId: !Ref: PubACL
+      NetworkAclId: !Ref PubACL
       RuleNumber: 120
       Egress: true
       RuleAction: allow
@@ -242,7 +254,7 @@ Resources:
   OutHttpAcl:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
-      NetworkAclId: !Ref: PubACL
+      NetworkAclId: !Ref PubACL
       RuleNumber: 100
       Egress: true
       RuleAction: allow
@@ -252,7 +264,7 @@ Resources:
   OutHttpsAcl:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
-      NetworkAclId: !Ref: PubACL
+      NetworkAclId: !Ref PubACL
       RuleNumber: 110
       Egress: true
       RuleAction: allow
@@ -352,38 +364,45 @@ Resources:
       VpcId: !ImportValue MainVPC
       GroupDescription: Allow SSH access from authorized computers, and SSH access to private subnets
       SecurityGroupIngress:
-        - # All traffic from same Security Group
-          IpProtocol: -1
-          SourceSecurityGroupId: !GetAtt BastionSG.GroupId
-        - # ICMP traffic from anywhere
-          IpProtocol: icmp
-          FromPort: -1
-          ToPort: -1
-          CidrIp: 0.0.0.0/0
-        - # SSH from Vicarel home
-          IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
-          CidrIp: 107.218.90.0/24
-        - # SSH from Renna lab
-          IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
-          CidrIp: 130.101.99.0/24
-        - # SSH from public subnets
-          IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
-          CidrIp: 10.0.128.0/17
+      - # ICMP traffic from anywhere
+        IpProtocol: icmp
+        FromPort: -1
+        ToPort: -1
+        CidrIp: 0.0.0.0/0
+      - # SSH from Vicarel home
+        IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 107.218.90.0/24
+      - # SSH from Renna lab
+        IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 130.101.99.0/24
+      - # SSH from public subnets
+        IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 10.0.128.0/17
       SecurityGroupEgress:
-        - # All traffic to same Security Group
-          IpProtocol: -1
-          DestinationSecurityGroupId: !GetAtt BastionSG.GroupId
-        - # SSH into private subnets
-          IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
-          CidrIp: 10.0.0.0/16
+      - # SSH into private subnets
+        IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 10.0.0.0/16
+  IngressFromSameSgRule:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !GetAtt BastionSG.GroupId
+      IpProtocol: -1
+      SourceSecurityGroupId: !GetAtt BastionSG.GroupId
+  EgressToSameSgRule:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !GetAtt BastionSG.GroupId
+      IpProtocol: -1
+      SourceSecurityGroupId: !GetAtt BastionSG.GroupId
+  
           
   # Define the EC2 instance(s)
   Bastion1:
@@ -398,15 +417,16 @@ Resources:
       KeyName: !Ref KeyPair
       Monitoring: true
       NetworkInterfaces:
-        - DeviceIndex: 0
-          AssociatePublicIpAddress: true
-          DeleteOnTermination: true
-          GroupSet: [ !Ref BastionSG ]
-          SubnetId: !Ref Subnet1
-          Description: Network interface for a bastion host
+      - DeviceIndex: 0
+        AssociatePublicIpAddress: true
+        DeleteOnTermination: true
+        GroupSet: [ !Ref BastionSG ]
+        SubnetId: !Ref Subnet1
+        Description: Network interface for a bastion host
       SourceDestCheck: true
       Tenancy: default
-      UserData: ""
+      UserData:
+        Fn::Base64: !FindInMap [ StringsMap, UserData, bash ]
   Bastion2:
     Type: AWS::EC2::Instance
     Condition: AtLeast2
@@ -419,15 +439,16 @@ Resources:
       KeyName: !Ref KeyPair
       Monitoring: true
       NetworkInterfaces:
-        - DeviceIndex: 0
-          AssociatePublicIpAddress: true
-          DeleteOnTermination: true
-          GroupSet: [ !Ref BastionSG ]
-          SubnetId: !Ref Subnet2
-          Description: Network interface for a bastion host
+      - DeviceIndex: 0
+        AssociatePublicIpAddress: true
+        DeleteOnTermination: true
+        GroupSet: [ !Ref BastionSG ]
+        SubnetId: !Ref Subnet2
+        Description: Network interface for a bastion host
       SourceDestCheck: true
       Tenancy: default
-      UserData: ""
+      UserData:
+        Fn::Base64: !FindInMap [ StringsMap, UserData, bash ]
   Bastion3:
     Type: AWS::EC2::Instance
     Condition: AtLeast3
@@ -440,15 +461,16 @@ Resources:
       KeyName: !Ref KeyPair
       Monitoring: true
       NetworkInterfaces:
-        - DeviceIndex: 0
-          AssociatePublicIpAddress: true
-          DeleteOnTermination: true
-          GroupSet: [ !Ref BastionSG ]
-          SubnetId: !Ref Subnet3
-          Description: Network interface for a bastion host
+      - DeviceIndex: 0
+        AssociatePublicIpAddress: true
+        DeleteOnTermination: true
+        GroupSet: [ !Ref BastionSG ]
+        SubnetId: !Ref Subnet3
+        Description: Network interface for a bastion host
       SourceDestCheck: true
       Tenancy: default
-      UserData: ""
+      UserData:
+        Fn::Base64: !FindInMap [ StringsMap, UserData, bash ]
   Bastion4:
     Type: AWS::EC2::Instance
     Condition: AtLeast4
@@ -461,16 +483,16 @@ Resources:
       KeyName: !Ref KeyPair
       Monitoring: true
       NetworkInterfaces:
-        - DeviceIndex: 0
-          AssociatePublicIpAddress: true
-          DeleteOnTermination: true
-          GroupSet: [ !Ref BastionSG ]
-          SubnetId: !Ref Subnet4
-          Description: Network interface for a bastion host
+      - DeviceIndex: 0
+        AssociatePublicIpAddress: true
+        DeleteOnTermination: true
+        GroupSet: [ !Ref BastionSG ]
+        SubnetId: !Ref Subnet4
+        Description: Network interface for a bastion host
       SourceDestCheck: true
       Tenancy: default
-      UserData: ""
-      
+      UserData:
+        Fn::Base64: !FindInMap [ StringsMap, UserData, bash ]
 Outputs:
   Bastion1:
     Value: !GetAtt Bastion1.PublicIp
