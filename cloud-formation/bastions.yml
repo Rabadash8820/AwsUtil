@@ -180,16 +180,6 @@ Resources:
       Protocol: 6
       CidrBlock: 0.0.0.0/0
       PortRange: { From: 80, To: 80 }
-  InHttpsAcl:
-    Type: AWS::EC2::NetworkAclEntry
-    Properties:
-      NetworkAclId: !Ref PubACL
-      RuleNumber: 110
-      Egress: false
-      RuleAction: allow
-      Protocol: 6
-      PortRange: { From: 443, To: 443 }
-      CidrBlock: 0.0.0.0/0
   InSshAcl1:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
@@ -260,16 +250,6 @@ Resources:
       RuleAction: allow
       Protocol: 6
       PortRange: { From: 80, To: 80 }
-      CidrBlock: 0.0.0.0/0
-  OutHttpsAcl:
-    Type: AWS::EC2::NetworkAclEntry
-    Properties:
-      NetworkAclId: !Ref PubACL
-      RuleNumber: 110
-      Egress: true
-      RuleAction: allow
-      Protocol: 6
-      PortRange: { From: 443, To: 443 }
       CidrBlock: 0.0.0.0/0
   
   # Define the requested number of subnets
@@ -390,6 +370,11 @@ Resources:
         FromPort: 22
         ToPort: 22
         CidrIp: 10.0.0.0/16
+      - # HTTP for automatic updates
+        IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: 0.0.0.0/0
   IngressFromSameSgRule:
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
