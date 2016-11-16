@@ -2,20 +2,53 @@ AWSTemplateFormatVersion: 2010-09-09
 
 Description: Requested number of bastion hosts, each in their own public subnet and termination-protected
 
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Subnet Configuration
+        Parameters:
+        - NetworkStackName
+        - AzName
+        - CidrBlock
+      - Label:
+          default: Bastion Host Instance Configuration
+        Parameters:
+        - HardenOS
+        - CreateNewSecurityGroup
+        - BastionSecurityGroupId
+        - KeyPair
+        - TimeZone
+
 Parameters:
-  NumberOfAZs:
-    Type: Number
-    Default: 2
-    AllowedValues: [ 1, 2, 3, 4 ]
-    Description: The number of Availability Zones in the current region.  Too high a number will cause a stack creation failure.  Too low a number will just leave some AZs without a bastion.  Note that you will be billed for every created bastion.
+  AzName:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Description: The Availability Zone in which to create a public subnet for the new bastion host.
+  CidrBlock:
+    Type: String
+    Default: 10.0.128.0/24
+    Description: The CIDR block for the new public subnet in the provided Availability Zone.
+    
   HardenOS:
     Type: String
     Default: true
     AllowedValues: [ true, false]
     Description: Hardened bastion hosts will use the latest CIS AMI to improve security.  Unhardened hosts will use the latest Amazon Linux AMI.
+  CreateNewSecurityGroup:
+    Type: String
+    Default: true
+    AllowedValues: [ true, false]
+    Description: Set to true if you want to create a new security group for the new bastion host.  If true, then the provided security group ID will be ignored.
+  BastionSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: REQUIRED!  The Security Group for the new bastion host.  If you want to create a new Security Group, then set CreateNewSecurityGroup to true (the value here will be ignored).  New Security Groups will allow SSH ingress from authorized networks, SSH egress to private networks, HTTP egress for automatic updates, and NTP egress for timezone synchronization.  If you are not creating a new subnet, then make sure that the provided subnet's ACL also allows these types of traffic!
   KeyPair:
     Type: AWS::EC2::KeyPair::KeyName
     Description: The EC2 key pair needed to connect to all new bastion hosts.
+  TimeZone:
+    Type: String
+    Default: UTC
+    Description: Name of a time zone data file in /usr/share/zoneinfo (for example "America/New_York").  Used to set the time zone for the bastion hosts.
   NetworkStackName:
     Type: String
     Default : MainVPC
@@ -26,62 +59,10 @@ Parameters:
     ConstraintDescription: must contain only alphanumeric characters and/or hyphens, and start with a letter
   
 Conditions:
-  AtLeast4: !Equals [ !Ref NumberOfAZs, 4 ]
-  AtLeast3: !Or [!Equals [!Ref NumberOfAZs, 3], Condition: AtLeast4]
-  AtLeast2: !Or [!Equals [!Ref NumberOfAZs, 2], Condition: AtLeast3]
-  AtLeast1: !Or [!Equals [!Ref NumberOfAZs, 1], Condition: AtLeast2]
-  Harden: !Equals [ !Ref HardenOS, true]
+  CreateSG: !Equals [ !Ref CreateNewSecurityGroup, true ]
+  Harden: !Equals [ !Ref HardenOS, true ]
   
 Mappings:
-  AzMap:
-    us-east-1:          # N. Virginia
-      "1": us-east-1a
-      "2": us-east-1b
-      "3": us-east-1c
-      "4": us-east-1e
-    us-east-2:          # Ohio
-      "1": us-east-2a
-      "2": us-east-2b
-      "3": us-east-2c
-    us-west-1:          # N. California
-      "1": us-west-1a
-      "2": us-west-1c
-    us-west-2:          # Oregon
-      "1": us-west-2a
-      "2": us-west-2b
-      "3": us-west-2c
-    eu-west-1:          # Ireland
-      "1": eu-west-1a
-      "2": eu-west-1b
-      "3": eu-west-1c
-    eu-central-1:       # Frankfurt
-      "1": eu-central-1a
-      "2": eu-central-1b
-    ap-northeast-1:     # Tokyo
-      "1": ap-northeast-1a
-      "2": ap-northeast-1c
-    ap-northeast-2:     # Seoul
-      "1": ap-northeast-2a
-      "2": ap-northeast-2c
-    ap-southeast-1:     # Singapore
-      "1": ap-southeast-1a
-      "2": ap-southeast-1b
-    ap-southeast-2:     # Sydney
-      "1": ap-southeast-2a
-      "2": ap-southeast-2b
-      "3": ap-southeast-2c
-    ap-south-1:         # Mumbai
-      "1": ap-south-1a
-      "2": ap-south-1b
-    sa-east-1:          # Sao Paulo
-      "1": sa-east-1a
-      "2": sa-east-1c
-  CidrMap:
-    AZ:
-      "1": 10.0.128.0/24
-      "2": 10.0.129.0/24
-      "3": 10.0.130.0/24
-      "4": 10.0.131.0/24
   AmiMap:
     us-east-1:
       harden:     ami-4d5c0a28
@@ -119,18 +100,6 @@ Mappings:
     sa-east-1:
       harden:     ami-45e77658
       dontHarden: ami-97831ffb
-  StringsMap:
-    UserData:
-      bash: |
-        #!/bin/bash
-        
-        # Add a newline to the ec2-user prompt string
-        echo PS1="\"\\n\$PS1\"">> /home/ec2-user/.bashrc
-
-        # Update all packages
-        echo
-        echo Updating all YUM packages...
-        yum update -y > NUL
   
 Resources:
   # Route Table for the new public subnet(s)
@@ -154,7 +123,7 @@ Resources:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId: !Ref PubACL
-      RuleNumber: 130
+      RuleNumber: 100
       Egress: false
       RuleAction: allow
       Protocol: 6
@@ -164,7 +133,7 @@ Resources:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId: !Ref PubACL
-      RuleNumber: 140
+      RuleNumber: 110
       Egress: false
       RuleAction: allow
       Protocol: 1
@@ -174,17 +143,27 @@ Resources:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId: !Ref PubACL
-      RuleNumber: 100
+      RuleNumber: 120
       Egress: false
       RuleAction: allow
       Protocol: 6
       CidrBlock: 0.0.0.0/0
       PortRange: { From: 80, To: 80 }
+  InNtpAcl:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref PubACL
+      RuleNumber: 130
+      Egress: false
+      RuleAction: allow
+      Protocol: 17
+      CidrBlock: 0.0.0.0/0
+      PortRange: { From: 123, To: 123 }
   InSshAcl1:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId: !Ref PubACL
-      RuleNumber: 120
+      RuleNumber: 140
       Egress: false
       RuleAction: allow
       Protocol: 6
@@ -194,7 +173,7 @@ Resources:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId: !Ref PubACL
-      RuleNumber: 121
+      RuleNumber: 141
       Egress: false
       RuleAction: allow
       Protocol: 6
@@ -204,7 +183,7 @@ Resources:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId: !Ref PubACL
-      RuleNumber: 122
+      RuleNumber: 142
       Egress: false
       RuleAction: allow
       Protocol: 6
@@ -215,7 +194,7 @@ Resources:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId: !Ref PubACL
-      RuleNumber: 130
+      RuleNumber: 100
       Egress: true
       RuleAction: allow
       Protocol: 6
@@ -225,13 +204,13 @@ Resources:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId: !Ref PubACL
-      RuleNumber: 140
+      RuleNumber: 110
       Egress: true
       RuleAction: allow
       Protocol: 1
       Icmp: { Code: -1, Type: -1 }
       CidrBlock: 0.0.0.0/0
-  OutSshAcl:
+  OutHttpAcl:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId: !Ref PubACL
@@ -239,110 +218,55 @@ Resources:
       Egress: true
       RuleAction: allow
       Protocol: 6
-      PortRange: { From: 22, To: 22 }
-      CidrBlock: 10.0.0.0/16
-  OutHttpAcl:
+      PortRange: { From: 80, To: 80 }
+      CidrBlock: 0.0.0.0/0
+  OutNtpAcl:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId: !Ref PubACL
-      RuleNumber: 100
+      RuleNumber: 130
+      Egress: true
+      RuleAction: allow
+      Protocol: 17
+      CidrBlock: 0.0.0.0/0
+      PortRange: { From: 123, To: 123 }
+  OutSshAcl:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref PubACL
+      RuleNumber: 140
       Egress: true
       RuleAction: allow
       Protocol: 6
-      PortRange: { From: 80, To: 80 }
-      CidrBlock: 0.0.0.0/0
+      PortRange: { From: 22, To: 22 }
+      CidrBlock: 10.0.0.0/16
   
   # Define the requested number of subnets
-  Subnet1:
+  Subnet:
     Type: AWS::EC2::Subnet
-    Condition: AtLeast1
     Properties:
       VpcId: !ImportValue MainVPC
-      AvailabilityZone: !FindInMap [AzMap, !Ref "AWS::Region", 1]
-      CidrBlock: !FindInMap [CidrMap, AZ, 1]
+      AvailabilityZone: !Ref AzName
+      CidrBlock: !Ref CidrBlock
       MapPublicIpOnLaunch: true
-  RTAssoc1:
+  RTAssoc:
     Type: AWS::EC2::SubnetRouteTableAssociation
-    Condition: AtLeast1
     Properties:
       RouteTableId: !Ref PubRT
-      SubnetId: !Ref Subnet1
-  ACLAssoc1:
+      SubnetId: !Ref Subnet
+  ACLAssoc:
     Type: AWS::EC2::SubnetNetworkAclAssociation
-    Condition: AtLeast1
     Properties:
       NetworkAclId: !Ref PubACL
-      SubnetId: !Ref Subnet1
-      
-  Subnet2:
-    Type: AWS::EC2::Subnet
-    Condition: AtLeast2
-    Properties:
-      VpcId: !ImportValue MainVPC
-      AvailabilityZone: !FindInMap [AzMap, !Ref "AWS::Region", 2]
-      CidrBlock: !FindInMap [CidrMap, AZ, 2]
-      MapPublicIpOnLaunch: true
-  RTAssoc2:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Condition: AtLeast2
-    Properties:
-      RouteTableId: !Ref PubRT
-      SubnetId: !Ref Subnet2
-  ACLAssoc2:
-    Type: AWS::EC2::SubnetNetworkAclAssociation
-    Condition: AtLeast2
-    Properties:
-      NetworkAclId: !Ref PubACL
-      SubnetId: !Ref Subnet2
-      
-  Subnet3:
-    Type: AWS::EC2::Subnet
-    Condition: AtLeast3
-    Properties:
-      VpcId: !ImportValue MainVPC
-      AvailabilityZone: !FindInMap [AzMap, !Ref "AWS::Region", 3]
-      CidrBlock: !FindInMap [CidrMap, AZ, 3]
-      MapPublicIpOnLaunch: true
-  RTAssoc3:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Condition: AtLeast3
-    Properties:
-      RouteTableId: !Ref PubRT
-      SubnetId: !Ref Subnet3
-  ACLAssoc3:
-    Type: AWS::EC2::SubnetNetworkAclAssociation
-    Condition: AtLeast3
-    Properties:
-      NetworkAclId: !Ref PubACL
-      SubnetId: !Ref Subnet3
-      
-  Subnet4:
-    Type: AWS::EC2::Subnet
-    Condition: AtLeast4
-    Properties:
-      VpcId: !ImportValue MainVPC
-      AvailabilityZone: !FindInMap [AzMap, !Ref "AWS::Region", 4]
-      CidrBlock: !FindInMap [CidrMap, AZ, 4]
-      MapPublicIpOnLaunch: true
-  RTAssoc4:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Condition: AtLeast4
-    Properties:
-      RouteTableId: !Ref PubRT
-      SubnetId: !Ref Subnet4
-  ACLAssoc4:
-    Type: AWS::EC2::SubnetNetworkAclAssociation
-    Condition: AtLeast4
-    Properties:
-      NetworkAclId: !Ref PubACL
-      SubnetId: !Ref Subnet4
+      SubnetId: !Ref Subnet
   
   # Security Group for the bastion hosts
-  BastionSG:
+  NewBastionSG:
     Type: AWS::EC2::SecurityGroup
+    Condition: CreateSG
     Properties:
       VpcId: !ImportValue MainVPC
-      GroupDescription: Allow SSH access from authorized computers, and SSH access to private subnets
+      GroupDescription: Allow SSH access from authorized computers, and SSH access to private subnets.  Also allow HTTP for automatic updates and NTP for clock synchronization.
       SecurityGroupIngress:
       - # ICMP traffic from anywhere
         IpProtocol: icmp
@@ -375,28 +299,33 @@ Resources:
         FromPort: 80
         ToPort: 80
         CidrIp: 0.0.0.0/0
+      - # NTP to synchronize UTC time with a pool of public servers
+        IpProtocol: udp
+        FromPort: 123
+        ToPort: 123
+        CidrIp: 0.0.0.0/0
   IngressFromSameSgRule:
     Type: AWS::EC2::SecurityGroupIngress
+    Condition: CreateSG
     Properties:
-      GroupId: !GetAtt BastionSG.GroupId
+      GroupId: !GetAtt NewBastionSG.GroupId
       IpProtocol: -1
-      SourceSecurityGroupId: !GetAtt BastionSG.GroupId
+      SourceSecurityGroupId: !GetAtt NewBastionSG.GroupId
   EgressToSameSgRule:
     Type: AWS::EC2::SecurityGroupEgress
+    Condition: CreateSG
     Properties:
-      GroupId: !GetAtt BastionSG.GroupId
+      GroupId: !GetAtt NewBastionSG.GroupId
       IpProtocol: -1
-      SourceSecurityGroupId: !GetAtt BastionSG.GroupId
-  
+      SourceSecurityGroupId: !GetAtt NewBastionSG.GroupId
           
   # Define the EC2 instance(s)
-  Bastion1:
+  Bastion:
     Type: AWS::EC2::Instance
-    Condition: AtLeast1
     Properties:
       DisableApiTermination: true
       EbsOptimized: false
-      ImageId: !If [Harden, !FindInMap [AmiMap, !Ref "AWS::Region", harden], !FindInMap [AmiMap, !Ref "AWS::Region", dontHarden] ]
+      ImageId: !If [ Harden, !FindInMap [AmiMap, !Ref "AWS::Region", harden], !FindInMap [AmiMap, !Ref "AWS::Region", dontHarden] ]
       InstanceInitiatedShutdownBehavior: stop
       InstanceType: !If [Harden, t2.micro, t2.nano]
       KeyName: !Ref KeyPair
@@ -405,94 +334,31 @@ Resources:
       - DeviceIndex: 0
         AssociatePublicIpAddress: true
         DeleteOnTermination: true
-        GroupSet: [ !Ref BastionSG ]
-        SubnetId: !Ref Subnet1
+        GroupSet:
+        - !If [ CreateSG, !Ref NewBastionSG, !Ref BastionSecurityGroupId ]
+        SubnetId: !Ref Subnet
         Description: Network interface for a bastion host
       SourceDestCheck: true
       Tenancy: default
       UserData:
-        Fn::Base64: !FindInMap [ StringsMap, UserData, bash ]
-  Bastion2:
-    Type: AWS::EC2::Instance
-    Condition: AtLeast2
-    Properties:
-      DisableApiTermination: true
-      EbsOptimized: false
-      ImageId: !If [Harden, !FindInMap [AmiMap, !Ref "AWS::Region", harden], !FindInMap [AmiMap, !Ref "AWS::Region", dontHarden] ]
-      InstanceInitiatedShutdownBehavior: stop
-      InstanceType: !If [Harden, t2.micro, t2.nano]
-      KeyName: !Ref KeyPair
-      Monitoring: true
-      NetworkInterfaces:
-      - DeviceIndex: 0
-        AssociatePublicIpAddress: true
-        DeleteOnTermination: true
-        GroupSet: [ !Ref BastionSG ]
-        SubnetId: !Ref Subnet2
-        Description: Network interface for a bastion host
-      SourceDestCheck: true
-      Tenancy: default
-      UserData:
-        Fn::Base64: !FindInMap [ StringsMap, UserData, bash ]
-  Bastion3:
-    Type: AWS::EC2::Instance
-    Condition: AtLeast3
-    Properties:
-      DisableApiTermination: true
-      EbsOptimized: false
-      ImageId: !If [Harden, !FindInMap [AmiMap, !Ref "AWS::Region", harden], !FindInMap [AmiMap, !Ref "AWS::Region", dontHarden] ]
-      InstanceInitiatedShutdownBehavior: stop
-      InstanceType: !If [Harden, t2.micro, t2.nano]
-      KeyName: !Ref KeyPair
-      Monitoring: true
-      NetworkInterfaces:
-      - DeviceIndex: 0
-        AssociatePublicIpAddress: true
-        DeleteOnTermination: true
-        GroupSet: [ !Ref BastionSG ]
-        SubnetId: !Ref Subnet3
-        Description: Network interface for a bastion host
-      SourceDestCheck: true
-      Tenancy: default
-      UserData:
-        Fn::Base64: !FindInMap [ StringsMap, UserData, bash ]
-  Bastion4:
-    Type: AWS::EC2::Instance
-    Condition: AtLeast4
-    Properties:
-      DisableApiTermination: true
-      EbsOptimized: false
-      ImageId: !If [Harden, !FindInMap [AmiMap, !Ref "AWS::Region", harden], !FindInMap [AmiMap, !Ref "AWS::Region", dontHarden] ]
-      InstanceInitiatedShutdownBehavior: stop
-      InstanceType: !If [Harden, t2.micro, t2.nano]
-      KeyName: !Ref KeyPair
-      Monitoring: true
-      NetworkInterfaces:
-      - DeviceIndex: 0
-        AssociatePublicIpAddress: true
-        DeleteOnTermination: true
-        GroupSet: [ !Ref BastionSG ]
-        SubnetId: !Ref Subnet4
-        Description: Network interface for a bastion host
-      SourceDestCheck: true
-      Tenancy: default
-      UserData:
-        Fn::Base64: !FindInMap [ StringsMap, UserData, bash ]
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          
+          # Add a newline to the ec2-user prompt string
+          echo PS1="\"\\n\$PS1\"">> /home/ec2-user/.bashrc
+          
+          # Adjust time zone
+          sed -ir "s|ZONE=\"UTC\"|ZONE=\"${TimeZone}\"|" /etc/sysconfig/clock
+          ln -sf /usr/share/zoneinfo/${TimeZone} /etc/localtime
+          reboot
+          
+          # Create a cron job to do yum security updates every hour
+          # and complete updates every day
+          yum install -yq yum-cron
+          chkconfig yum-cron on
+          service yum-cron start
+          
 Outputs:
-  Bastion1:
-    Value: !GetAtt Bastion1.PublicIp
-    Condition: AtLeast1
+  Bastion:
+    Value: !GetAtt Bastion.PublicIp
     Description: The public IP address of the new bastion host
-  Bastion2:
-    Value: !GetAtt Bastion2.PublicIp
-    Condition: AtLeast2
-    Description: The public IP address of the new bastion host
-  Bastion3:
-    Value: !GetAtt Bastion3.PublicIp
-    Condition: AtLeast3
-    Description: The public IP address of the new bastion host
-  Bastion4:
-    Value: !GetAtt Bastion4.PublicIp
-    Condition: AtLeast4
-    Description: The public IP address of the new bastion host
-  
