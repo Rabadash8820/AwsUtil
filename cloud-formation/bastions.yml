@@ -19,8 +19,17 @@ Metadata:
         - BastionSecurityGroupId
         - KeyPair
         - TimeZone
+        - YumUpdateEmail
 
 Parameters:
+  NetworkStackName:
+    Type: String
+    Default : MainVPC
+    MinLength : 1
+    MaxLength : 255
+    AllowedPattern: ^[a-zA-Z][-a-zA-Z0-9]*$
+    Description: Name of an active CloudFormation stack that contains the networking resources needed to create a bastion host in its own public subnet.
+    ConstraintDescription: must contain only alphanumeric characters and/or hyphens, and start with a letter
   AzName:
     Type: AWS::EC2::AvailabilityZone::Name
     Description: The Availability Zone in which to create a public subnet for the new bastion host.
@@ -28,7 +37,7 @@ Parameters:
     Type: String
     Default: 10.0.128.0/24
     Description: The CIDR block for the new public subnet in the provided Availability Zone.
-    
+  
   HardenOS:
     Type: String
     Default: true
@@ -49,14 +58,13 @@ Parameters:
     Type: String
     Default: UTC
     Description: Name of a time zone data file in /usr/share/zoneinfo (for example "America/New_York").  Used to set the time zone for the bastion hosts.
-  NetworkStackName:
+  YumUpdateEmail:
     Type: String
-    Default : MainVPC
-    MinLength : 1
+    Default: admin@example.com
     MaxLength : 255
-    AllowedPattern: ^[a-zA-Z][-a-zA-Z0-9]*$
-    Description: Name of an active CloudFormation stack that contains the networking resources needed to create a bastion host in its own public subnet.
-    ConstraintDescription: must contain only alphanumeric characters and/or hyphens, and start with a letter
+    AllowedPattern: ^([0-9A-Za-z]+[._-]?)+[0-9A-Za-z]+@([0-9A-Za-z]+[._-]?)+\.[0-9A-Za-z]+$
+    ConstraintDescription: Must be a valid Email address, like "frodo@theshire.com".
+    Description: Email to which log info from automatic yum updates will be sent.
   
 Conditions:
   CreateSG: !Equals [ !Ref CreateNewSecurityGroup, true ]
@@ -319,7 +327,7 @@ Resources:
       IpProtocol: -1
       SourceSecurityGroupId: !GetAtt NewBastionSG.GroupId
           
-  # Define the EC2 instance(s)
+  # Define the EC2 instance
   Bastion:
     Type: AWS::EC2::Instance
     Properties:
@@ -345,18 +353,52 @@ Resources:
           #!/bin/bash
           
           # Add a newline to the ec2-user prompt string
+          echo
+          echo Adding a new line to the bash prompt...
           echo PS1="\"\\n\$PS1\"">> /home/ec2-user/.bashrc
+          echo Success
           
           # Adjust time zone
+          echo
+          echo Adjusting time zone to ${TimeZone}...
           sed -ir "s|ZONE=\"UTC\"|ZONE=\"${TimeZone}\"|" /etc/sysconfig/clock
           ln -sf /usr/share/zoneinfo/${TimeZone} /etc/localtime
-          reboot
           
-          # Create a cron job to do yum security updates every hour
-          # and complete updates every day
-          yum install -yq yum-cron
+          # Install yum-cron to do automatic yum updates
+          echo
+          echo Installing the yum-cron package...
+          yum install -y -q yum-cron
+          echo Success
+          
+          # Configure hourly security updates and daily complete updates
+          cat > yum-cron-conf.sed <<- EOB
+          s|update_messages = no|update_messages = yes|
+          s|download_updates = no|download_updates = yes|
+          # s|apply_updates = no|apply_updates = yes|
+          s|system_name = None|system_name = ${AWS::StackName}|
+          s|emit_via = stdio|emit_via = email|
+          s|email_to = root|email_to = ${YumUpdateEmail}|
+          EOB
+          echo
+          echo Configuring hourly security updates...
+          sed -i "s|update_cmd = default|update_cmd = security|" /etc/yum/yum-cron-hourly.conf
+          sed -i -f yum-cron-conf.sed /etc/yum/yum-cron-hourly.conf
+          echo Configuring  daily complete updates...
+          sed -i -f yum-cron-conf.sed /etc/yum/yum-cron.conf
+          rm yum-cron-conf.sed
+          echo Success
+          
+          # Make sure yum-cron starts now and after all future reboots
+          echo
+          echo Registering yum-cron to start on ever reboot...
           chkconfig yum-cron on
-          service yum-cron start
+          echo Success
+          
+          # Reboot to make sure everything's cool B)
+          echo
+          echo Rebooting...
+          reboot
+          echo Success
           
 Outputs:
   Bastion:
