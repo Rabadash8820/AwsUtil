@@ -14,6 +14,8 @@ Metadata:
       - Label:
           default: Bastion Host Instance Configuration
         Parameters:
+        - PublicDns
+        - HostedZoneId
         - HardenOS
         - CreateNewSecurityGroup
         - BastionSecurityGroupId
@@ -24,9 +26,9 @@ Metadata:
 Parameters:
   NetworkStackName:
     Type: String
-    Default : MainVPC
-    MinLength : 1
-    MaxLength : 255
+    Default: MainVPC
+    MinLength: 1
+    MaxLength: 255
     AllowedPattern: ^[a-zA-Z][-a-zA-Z0-9]*$
     Description: Name of an active CloudFormation stack that contains the networking resources needed to create a bastion host in its own public subnet.
     ConstraintDescription: must contain only alphanumeric characters and/or hyphens, and start with a letter
@@ -37,7 +39,17 @@ Parameters:
     Type: String
     Default: 10.0.128.0/24
     Description: The CIDR block for the new public subnet in the provided Availability Zone.
-  
+   
+  PublicDns:
+    Type: String
+    Default: bastion.mycompany.com
+    MaxLength: 255
+    AllowedPattern: ^([0-9A-Za-z]+[._-]?)+[0-9A-Za-z]+$
+    ConstraintDescription: must be a valid domain name, i.e., <= 255 alphanumeric characters, periods, hyphens, and underscores.
+    Description: The public DNS name that will be assigned to the new bastion host.  It must be a subdomain of a hosted zone that has already been created in AWS.
+  HostedZoneId:
+    Type: AWS::Route53::HostedZone::Id
+    Description: The hosted zone in which the new bastion host's CNAME record will be stored.
   HardenOS:
     Type: String
     Default: true
@@ -60,10 +72,10 @@ Parameters:
     Description: Name of a time zone data file in /usr/share/zoneinfo (for example "America/New_York").  Used to set the time zone for the bastion hosts.
   YumUpdateEmail:
     Type: String
-    Default: admin@example.com
-    MaxLength : 255
+    Default: admin@mycompany.com
+    MaxLength: 255
     AllowedPattern: ^([0-9A-Za-z]+[._-]?)+[0-9A-Za-z]+@([0-9A-Za-z]+[._-]?)+\.[0-9A-Za-z]+$
-    ConstraintDescription: Must be a valid Email address, like "frodo@theshire.com".
+    ConstraintDescription: must be a valid Email address, like "frodo@theshire.com".
     Description: Email to which log info from automatic yum updates will be sent.
   
 Conditions:
@@ -364,6 +376,9 @@ Resources:
           sed -ir "s|ZONE=\"UTC\"|ZONE=\"${TimeZone}\"|" /etc/sysconfig/clock
           ln -sf /usr/share/zoneinfo/${TimeZone} /etc/localtime
           
+          # Adjust hostname to match the provided public DNS name
+          sed -i "s|HOSTNAME=localhost.localdomain|HOSTNAME=${PublicDns}|" /etc/sysconfig/network
+          
           # Install yum-cron to do automatic yum updates
           echo
           echo Installing the yum-cron package...
@@ -399,6 +414,18 @@ Resources:
           echo Rebooting...
           reboot
           echo Success
+          
+  # Give it a public DNS hostname
+  CnameRecordSet:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref PublicDns
+      Type: A
+      ResourceRecords: [ !GetAtt Bastion.PublicIp ]
+      TTL: 60
+      Comment: String
+      # HealthCheckId: String
           
 Outputs:
   Bastion:
