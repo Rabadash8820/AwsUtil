@@ -7,10 +7,6 @@ Metadata:
     ParameterGroups:
       - Parameters:
           - NetworkStackName
-          - AdminPassword
-      - Label:
-          default: Simple AD Configuration
-        Parameters: 
           - DirectoryName
           - DirectoryNetbiosName
           - DirectoryPassword
@@ -24,11 +20,6 @@ Parameters:
     AllowedPattern: ^[a-zA-Z][-a-zA-Z0-9]*$
     Description: Name of an active CloudFormation stack that contains the networking resources needed to create a bastion host in its own public subnet.
     ConstraintDescription: must contain only alphanumeric characters and/or hyphens, and start with a letter
-  AdminPassword:
-    Type: String
-    NoEcho: true
-    Description: The password for the administrator IAM user.
-    ConstraintDescription: must conform to this AWS account's password policy, if any.
   DirectoryName:
     Type: String
     Default: corp.example.com
@@ -95,61 +86,7 @@ Mappings:
       "1": 10.0.140.0/24
       "2": 10.0.141.0/24
 
-Resources:
-  # IAM Groups, each with a new user
-  AdminGroup:
-    Type: AWS::IAM::Group
-    Properties:
-      GroupName: !Join ["-", [ !Ref "AWS::Region", "admins" ] ]
-      Path: /admins/
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AdministratorAccess
-  AdminUser:
-    Type: AWS::IAM::User
-    Properties:
-      UserName: !Join ["-", [ !Ref "AWS::Region", "admin" ] ]
-      Path: /admins/admin/
-      Groups: [ !Ref AdminGroup ]
-      LoginProfile:
-        Password: !Ref AdminPassword
-        PasswordResetRequired: false
-  PowerUserGroup:
-    Type: AWS::IAM::Group
-    Properties:
-      GroupName: !Join ["-", [ !Ref "AWS::Region", "power-users" ] ]
-      ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/PowerUserAccess
-      Path: /power-users/
-  PowerUserMinusPortalGroup:
-    Type: AWS::IAM::Group
-    Properties:
-      GroupName: !Join ["-", [ !Ref "AWS::Region", "power-users-minus-portal" ] ]
-      ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/PowerUserAccess
-      Path: /power-users-minus-portal/
-      Policies:
-      - PolicyName: DenyAccessToAwsPortal
-        PolicyDocument:
-          Version: 2012-10-17
-          Statement:
-            Effect: Deny
-            Action: "aws-portal:*"
-            Resource: "*"
-  ReadOnlyGroup:
-    Type: AWS::IAM::Group
-    Properties:
-      GroupName: !Join ["-", [ !Ref "AWS::Region", "read-only-users" ] ]
-      ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/ReadOnlyAccess
-      Path: /read-only/
-  KmsGroup:
-    Type: AWS::IAM::Group
-    Properties:
-      GroupName: !Join ["-", [ !Ref "AWS::Region", "kms-managers" ] ]
-      ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/AWSKeyManagementServicePowerUser
-      Path: /kms/
-        
+Resources:        
   # Route Table for the new public subnet(s)
   PubRT:
     Type: AWS::EC2::RouteTable
