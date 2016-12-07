@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: 2010-09-09
 
-Description: Requested number of bastion hosts, each in their own public subnet and termination-protected
+Description: A new bastion host in a public subnet that is termination-protected, automatically updated, and optionally OS-hardened.
 
 Metadata:
   AWS::CloudFormation::Interface:
@@ -76,7 +76,7 @@ Parameters:
     MaxLength: 255
     AllowedPattern: ^([0-9A-Za-z]+[._-]?)+[0-9A-Za-z]+@([0-9A-Za-z]+[._-]?)+\.[0-9A-Za-z]+$
     ConstraintDescription: must be a valid Email address, like "frodo@theshire.com".
-    Description: Email to which log info from automatic yum updates will be sent.
+    Description: Email to which notifications from automatic yum updates will be sent.  These notifications will only indicate that updates have been downloaded; the updates will still have to be installed manually.
   
 Conditions:
   CreateSG: !Equals [ !Ref CreateNewSecurityGroup, true ]
@@ -169,7 +169,7 @@ Resources:
       Protocol: 6
       CidrBlock: 0.0.0.0/0
       PortRange: { From: 80, To: 80 }
-  InNtpAcl:
+  InNtpAcl:     # Both outbound and inbound ACL entries required
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId: !Ref PubACL
@@ -240,7 +240,7 @@ Resources:
       Protocol: 6
       PortRange: { From: 80, To: 80 }
       CidrBlock: 0.0.0.0/0
-  OutNtpAcl:
+  OutNtpAcl:     # Both outbound and inbound ACL entries required
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId: !Ref PubACL
@@ -250,11 +250,21 @@ Resources:
       Protocol: 17
       CidrBlock: 0.0.0.0/0
       PortRange: { From: 123, To: 123 }
-  OutSshAcl:
+  OutSmtpAcl:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId: !Ref PubACL
       RuleNumber: 140
+      Egress: true
+      RuleAction: allow
+      Protocol: 6
+      CidrBlock: 0.0.0.0/0
+      PortRange: { From: 25, To: 25 }
+  OutSshAcl:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref PubACL
+      RuleNumber: 150
       Egress: true
       RuleAction: allow
       Protocol: 6
@@ -319,10 +329,15 @@ Resources:
         FromPort: 80
         ToPort: 80
         CidrIp: 0.0.0.0/0
-      - # NTP to synchronize UTC time with a pool of public servers
+      - # NTP to synchronize UTC time with a pool of public servers (only outbound rule required)
         IpProtocol: udp
         FromPort: 123
         ToPort: 123
+        CidrIp: 0.0.0.0/0
+      - # SMTP to send cron output
+        IpProtocol: tcp
+        FromPort: 25
+        ToPort: 25
         CidrIp: 0.0.0.0/0
   IngressFromSameSgRule:
     Type: AWS::EC2::SecurityGroupIngress
@@ -368,22 +383,30 @@ Resources:
           echo
           echo Adding a new line to the bash prompt...
           echo PS1="\"\\n\$PS1\"">> /home/ec2-user/.bashrc
-          echo Success
+          echo Success!
           
           # Adjust time zone
           echo
           echo Adjusting time zone to ${TimeZone}...
           sed -ir "s|ZONE=\"UTC\"|ZONE=\"${TimeZone}\"|" /etc/sysconfig/clock
           ln -sf /usr/share/zoneinfo/${TimeZone} /etc/localtime
+          echo Success!
           
           # Adjust hostname to match the provided public DNS name
+          echo
+          echo Adjusting HOSTNAME to match the provided public DNS name
           sed -i "s|HOSTNAME=localhost.localdomain|HOSTNAME=${PublicDns}|" /etc/sysconfig/network
+          echo Success!
           
           # Install yum-cron to do automatic yum updates
+          # and postfix (a secure Mail Transfer Agent) and mailx to do email notifications
           echo
           echo Installing the yum-cron package...
-          yum install -y -q yum-cron
-          echo Success
+          yum install -y -q yum-cron    # -y and -q options must be separated for yum
+          echo Installing the postfix and mailx packages...
+          yum install -y -q postfix     # -y and -q options must be separated for yum
+          yum install -y -q mailx
+          echo Success!
           
           # Configure hourly security updates and daily complete updates
           cat > yum-cron-conf.sed <<- EOB
@@ -392,6 +415,7 @@ Resources:
           # s|apply_updates = no|apply_updates = yes|
           s|system_name = None|system_name = ${AWS::StackName}|
           s|emit_via = stdio|emit_via = email|
+          s|email_from = root|email_from = yum-cron|
           s|email_to = root|email_to = ${YumUpdateEmail}|
           EOB
           echo
@@ -401,19 +425,22 @@ Resources:
           echo Configuring  daily complete updates...
           sed -i -f yum-cron-conf.sed /etc/yum/yum-cron.conf
           rm yum-cron-conf.sed
-          echo Success
+          echo Success!
           
-          # Make sure yum-cron starts now and after all future reboots
+          # Make sure yum-cron and postfix start after all future reboots
           echo
-          echo Registering yum-cron to start on ever reboot...
+          echo Registering yum-cron to start on every reboot...
           chkconfig yum-cron on
-          echo Success
+          echo Registering postfix to start on every reboot...
+          chkconfig postfix on
+          echo Success!
           
-          # Reboot to make sure everything's cool B)
+          # Clean yum and reboot to make sure everything's cool B)
           echo
           echo Rebooting...
+          yum clean all
           reboot
-          echo Success
+          echo Success!
           
   # Give it a public DNS hostname
   CnameRecordSet:
