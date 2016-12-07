@@ -5,11 +5,11 @@ Description: IAM principals, and an Active Directory
 Metadata:
   AWS::CloudFormation::Interface: 
     ParameterGroups:
-      - Parameters:
-          - NetworkStackName
-          - DirectoryName
-          - DirectoryNetbiosName
-          - DirectoryPassword
+    - Parameters:
+      - NetworkStackName
+      - DirectoryName
+      - DirectoryNetbiosName
+      - DirectoryPassword
 
 Parameters:
   NetworkStackName:
@@ -46,41 +46,41 @@ Parameters:
 Mappings:
   AzMap:
     us-east-1:          # N. Virginia
-      "1": us-east-1a
-      "2": us-east-1b
+      1: us-east-1a
+      2: us-east-1b
     us-east-2:          # Ohio
-      "1": us-east-2a
-      "2": us-east-2b
+      1: us-east-2a
+      2: us-east-2b
     us-west-1:          # N. California
-      "1": us-west-1a
-      "2": us-west-1c
+      1: us-west-1a
+      2: us-west-1c
     us-west-2:          # Oregon
-      "1": us-west-2a
-      "2": us-west-2b
+      1: us-west-2a
+      2: us-west-2b
     eu-west-1:          # Ireland
-      "1": eu-west-1a
-      "2": eu-west-1b
+      1: eu-west-1a
+      2: eu-west-1b
     eu-central-1:       # Frankfurt
-      "1": eu-central-1a
-      "2": eu-central-1b
+      1: eu-central-1a
+      2: eu-central-1b
     ap-northeast-1:     # Tokyo
-      "1": ap-northeast-1a
-      "2": ap-northeast-1c
+      1: ap-northeast-1a
+      2: ap-northeast-1c
     ap-northeast-2:     # Seoul
-      "1": ap-northeast-2a
-      "2": ap-northeast-2c
+      1: ap-northeast-2a
+      2: ap-northeast-2c
     ap-southeast-1:     # Singapore
-      "1": ap-southeast-1a
-      "2": ap-southeast-1b
+      1: ap-southeast-1a
+      2: ap-southeast-1b
     ap-southeast-2:     # Sydney
-      "1": ap-southeast-2a
-      "2": ap-southeast-2b
+      1: ap-southeast-2a
+      2: ap-southeast-2b
     ap-south-1:         # Mumbai
-      "1": ap-south-1a
-      "2": ap-south-1b
+      1: ap-south-1a
+      2: ap-south-1b
     sa-east-1:          # Sao Paulo
-      "1": sa-east-1a
-      "2": sa-east-1c
+      1: sa-east-1a
+      2: sa-east-1c
   CidrMap:
     AZ:
       "1": 10.0.140.0/24
