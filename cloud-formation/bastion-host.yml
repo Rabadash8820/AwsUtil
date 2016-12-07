@@ -85,40 +85,40 @@ Conditions:
 Mappings:
   AmiMap:
     us-east-1:        # N. Virginia
-      harden:     ami-4d5c0a28
+      harden:     ami-733a0c64
       dontHarden: ami-b73b63a0
     us-east-2:        # Ohio
-      harden:     ami-fc431899
+      harden:     ami-fa653f9f
       dontHarden: ami-58277d3d
     us-west-1:        # N. California
-      harden:     ami-4104c405
+      harden:     ami-5f3f6b3f
       dontHarden: ami-23e8a343
     us-west-2:        # Oregon
-      harden:     ami-34866607
+      harden:     ami-2347eb43
       dontHarden: ami-5ec1673e
     eu-west-1:        # Ireland
-      harden:     ami-2fd5e758
+      harden:     ami-f52f7286
       dontHarden: ami-9398d3e0
     eu-central-1:     #Frankfurt
-      harden:     ami-5254584f
+      harden:     ami-949450fb
       dontHarden: ami-f9619996
     ap-northeast-1:   # Tokyo
-      harden:     ami-8c0d6d8c
+      harden:     ami-69db6f08
       dontHarden: ami-0c11b26d
     ap-northeast-2:   # Seoul
-      harden:     ami-839b55ed
+      harden:     ami-20a0774e
       dontHarden: ami-983ce8f6
     ap-southeast-1:   # Singapore
-      harden:     ami-5c91810e
+      harden:     ami-4f892b2c
       dontHarden: ami-b953f2da
     ap-southeast-2:   # Sydney
-      harden:     ami-e1f1badb
+      harden:     ami-620f3101
       dontHarden: ami-db704cb8
     ap-south-1:       # Mumbai
-      harden:     ami-de076db1
+      harden:     ami-c53146aa
       dontHarden: ami-34b4c05b
     sa-east-1:        # Sao Paulo
-      harden:     ami-45e77658
+      harden:     ami-dce876b0
       dontHarden: ami-97831ffb
   
 Resources:
