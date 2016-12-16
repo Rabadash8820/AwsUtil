@@ -1,16 +1,8 @@
-## Bash Scripts
-To be run by various AWS instance types during cloud-init.  
+# AWS Utility Scripts
 
-Make sure that none of these scripts contain Windows-style line endings ('\r' characters)!
+These scripts are intended to be general-purpose, for organizations other than Danware to quickly allocate CloudFormation stacks, EC2 instances with cloud-init scripts, database hosts with SQL schemas, etc.  Most of the Danware-specific information is in the "docs" folder.
 
-### Usage
-To use any of these cloud init scripts while configuring an AWS instance, paste the following code into its user data box.
+Make sure that bash scripts don't contain Windows-style line endings ('\r' characters)!  
 
-`#!/bin/bash`  
-
-`curl https://raw.githubusercontent.com/Rabadash8820/AWSCloudInit/master/SCRIPT_NAME_HERE.bash -o danware-cloud-init.bash`  
-`chmod 700 danware-cloud-init.bash`  
-`bash danware-cloud-init.bash`  
-`rm danware-cloud-init.bash`  
-
-To check the output of one of these scripts, view `/var/log/cloud-init-output.log` once the instance has started and passed all status checks.
+To check the output of one any cloud-init scripts, view `/var/log/cloud-init-output.log` once the instance has started and passed all status checks.  
+Initiation of automatic updates via yum-cron are logged in `/var/log/cron` and actual completed updates are logged in `/var/log/yum.log`
