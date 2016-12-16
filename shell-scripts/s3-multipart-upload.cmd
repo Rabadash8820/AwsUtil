@@ -12,8 +12,7 @@ CALL :parseArgs %*
 
 :: If there were any parsing errors then just exit
 SET errorCode=%ERRORLEVEL%
-IF %errorCode%==1 EXIT /B 1
-IF %errorCode%==2 EXIT /B 1
+IF NOT %errorCode%==0 EXIT /B 1
 
 :: If help was requested then show proper usage and exit
 IF %help%==true (
@@ -26,12 +25,12 @@ CALL :createMultipartUpload
 IF ERRORLEVEL 1 EXIT /B 1
 
 :: Upload each part
-SET ETAGS_FILE=upload-part-etags.json
+SET ETAGS_JSON=%CD%\upload-part-etags.json
 CALL :uploadParts
 
 :: Complete the multipart upload
 CALL :completeMultipartUpload
-DEL "%ETAGS_FILE%"
+REM DEL "%ETAGS_JSON%"
 
 EXIT /B 0
 
@@ -42,16 +41,16 @@ EXIT /B 0
 
 SETLOCAL EnableDelayedExpansion
 
-SET archiver=WinRAR
 >CON (
-    ECHO Usage: s3-multipart-upload [options] <filedir>
+    ECHO.
+    ECHO Usage: s3-multipart-upload [options] ^<filedir^>
     ECHO.
     ECHO    filedir          Path to the directory containing the object's parts.  The ONLY
     ECHO                     files that should be in this directory are the sequential parts
     ECHO                     of the object to be uploaded (generated, e.g., by HJ Split for
-    ECHO                     Windows).
+    ECHO                     Windows^).
     ECHO.
-    ECHO                     These files should fit the pattern "*.00?".  For example, you
+    ECHO                     These files should fit the pattern "*.*.*".  For example, you
     ECHO                     might have a file called "mydata.zip" that was split into
     ECHO                     10 parts with HJ Split, generating the files mydata.zip.001,
     ECHO                     mydata.zip.002, etc., in a directory such as "C:\data\mydata\".
@@ -65,7 +64,6 @@ SET archiver=WinRAR
     ECHO                     Like with other AWS commands, you can also set the 
     ECHO                     AWS_DEFAULT_PROFILE environment variable beforehand.  Any actual
     ECHO                     value passed to --profile overrides this environment variable.
-    ECHO.
     ECHO    -o, --options    Options to pass to the create-multipart-upload command.  Make
     ECHO                     sure all options are enclosed in double quotes, e.g.:
     ECHO                     `--options "--metadata key=value --storage-class STANDARD_IA"`
@@ -85,7 +83,9 @@ EXIT /B 0
 :parseArgs
 
 :: If no arguments were provided then show usage and exit
-IF "%1"=="" (
+SET arg=%1
+FOR /F "usebackq tokens=*" %%a IN ('%arg%') DO SET arg=%%~a
+IF "%arg%"=="" (
     ECHO Error: Missing required arguments 1>&2
     ECHO.
     CALL :showUsage
@@ -96,116 +96,114 @@ IF "%1"=="" (
 SET help=false
 SET options=""
 
-:: Parse each argument
-SET result=0
-
 :loop
-ECHO loop
-IF "%1"=="" GOTO continueParse
-SET validArg=false
-    
-:: Parse object file path
 SET arg=%1
-IF NOT "!arg:~0,1!"=="-" (
+FOR /F "usebackq tokens=*" %%a IN ('%arg%') DO (SET arg=%%~a)   &:: Remove double quotes
+IF "%arg%"=="" GOTO continueParse
+
+:: Parse part directory path
+IF NOT "%arg:~0,1%"=="-" (
     IF DEFINED filedir (
-        SET result=2
         ECHO Error: Only one file path may be provided for the object to upload! 1>&2
+        EXIT /B 2
     ) ELSE (
-        SET filedir=%1
+        SET filedir=%arg%
         SHIFT
-        SET validArg=true
+        GOTO loop
     )
 )
 
 :: Parse bucket name
+SET arg=%1
+FOR /F "usebackq tokens=*" %%a IN ('%arg%') DO SET arg=%%~a
+IF "%arg%"=="" GOTO continueParse
 SET isBucket=false
-IF "%1"=="-b" SET isBucket=true
-IF "%1"=="/b" SET isBucket=true && IF "%1"=="/B" SET isBucket=true
-IF "%1"=="--bucket" SET isBucket=true
-IF !isBucket!==true (
+SET values=-b /b /B --bucket
+FOR %%v IN (%values%) DO IF %arg%==%%v SET isBucket=true
+IF %isBucket%==true (
     SET arg=%2
-    IF "!arg!"=="" SET result=2
-    IF "!arg:~0,1!"=="-" SET result=2
-    IF !result!==0 (SHIFT) ELSE ECHO Error: --bucket requires an argument 1>&2
+    SET good=true
+    IF "!arg!"=="" SET good=false
+    IF "!arg:~0,1!"=="-" SET good=false
+    IF !good!==true (SHIFT) ELSE (ECHO Error: --bucket requires an argument 1>&2 & EXIT /B 2)
     SET bucket=!arg!
     SHIFT
+    GOTO loop
 )
-IF !isBucket!==true SET validArg=true
 
 :: Parse help flag
+SET arg=%1
+FOR /F "usebackq tokens=*" %%a IN ('%arg%') DO SET arg=%%~a
+IF "%arg%"=="" GOTO continueParse
 SET isHelp=false
-IF "%1"=="-h" SET isHelp=true
-IF "%1"=="/h" SET isHelp=true & IF "%1"=="/H" SET isHelp=true & IF "%1"=="/?" SET isHelp=true
-IF "%1"=="--help" SET isHelp=true
-IF !isHelp!==true (
+SET values=-h /h /H --help /?
+FOR %%v IN (%values%) DO IF %arg%==%%v SET isHelp=true
+IF %isHelp%==true (
     SET help=true
     SHIFT
+    GOTO loop
 )
-IF !isHelp!==true SET validArg=true
 
 :: Parse object key
+SET arg=%1
+FOR /F "usebackq tokens=*" %%a IN ('%arg%') DO SET arg=%%~a
+IF "%arg%"=="" GOTO continueParse
 SET isKey=false
-IF "%1"=="-k" SET isKey=true
-IF "%1"=="/k" SET isKey=true & IF "%1"=="/K" SET isKey=true
-IF "%1"=="--key" SET isKey=true
-IF !isKey!==true (
+SET values=-k /k /K --key
+FOR %%v IN (%values%) DO IF %arg%==%%v SET isKey=true
+IF %isKey%==true (
     SET arg=%2
-    IF "!arg!"=="" SET result=2
-    IF "!arg:~0,1!"=="-" SET result=2
-    IF !result!==0 (SHIFT) ELSE ECHO Error: --key requires an argument 1>&2
+    SET good=true
+    IF "!arg!"=="" SET good=false
+    IF "!arg:~0,1!"=="-" SET good=false
+    IF !good!==true (SHIFT) ELSE (ECHO Error: --key requires an argument 1>&2 & EXIT /B 2)
     SET key=!arg!
     SHIFT
+    GOTO loop
 )
-IF !isKey!==true SET validArg=true
 
 :: Parse extra AWS options
+SET arg=%1
+FOR /F "usebackq tokens=*" %%a IN ('%arg%') DO SET arg=%%~a
+IF "%arg%"=="" GOTO continueParse
 SET isOptions=false
-IF "%1"=="-o" SET isOptions=true
-IF "%1"=="/o" SET isOptions=true & IF "%1"=="/O" SET isOptions=true
-IF "%1"=="--options" SET isOptions=true
-IF !isOptions!==true (
+SET values=-o /o /O --options
+FOR %%v IN (%values%) DO IF %arg%==%%v SET isOptions=true
+IF %isOptions%==true (
     SET arg=%2
-    IF "!arg!"=="" SET result=2
-    IF "!arg:~0,1!"=="-" SET result=2
-    IF !result!==0 (SHIFT) ELSE ECHO Error: --options requires an argument 1>&2
+    SET good=true
+    IF "!arg!"=="" SET good=false
+    IF "!arg:~0,1!"=="-" SET good=false
+    IF !good!==true (SHIFT) ELSE (ECHO Error: --options requires an argument 1>&2 & EXIT /B 2)
     SET options=!arg!
     SHIFT
+    GOTO loop
 )
-IF !isOptions!==true SET validArg=true
 
 :: Parse AWS credentials profile
+SET arg=%1
+FOR /F "usebackq tokens=*" %%a IN ('%arg%') DO SET arg=%%~a
+IF "%arg%"=="" GOTO continueParse
 SET isProfile=false
-IF "%1"=="-p" SET isProfile=true
-IF "%1"=="/p" SET isProfile=true & IF "%1"=="/P" SET isProfile=true
-IF "%1"=="--profile" SET isProfile=true
-IF !isProfile!==true (
+SET values=-p /p /P --profile
+FOR %%v IN (%values%) DO IF %arg%==%%v SET isProfile=true
+IF %isProfile%==true (
     SET arg=%2
-    IF "!arg!"=="" SET result=2
-    IF "!arg:~0,1!"=="-" SET result=2
-    IF !result!==0 (SHIFT) ELSE ECHO Error: --profile requires an argument 1>&2
+    SET good=true
+    IF "!arg!"=="" SET good=false
+    IF "!arg:~0,1!"=="-" SET good=false
+    IF !good!==true (SHIFT) ELSE (ECHO Error: --profile requires an argument 1>&2 & EXIT /B 2)
     SET profile=!arg!
     SHIFT
+    GOTO loop
 )
-IF !isProfile!==true SET validArg=true
 
 :: If this arg was invalid...
-:: If a parsing error already occurred then skip over this block to keep the error messages precise
-IF !result!==0 (
-    IF !validArg!==false (
-        ECHO Error: unrecognized argument "%1" 1>&2
-        SET result=3
-        SHIFT
-    )
-)
+SET arg=%1
+FOR /F "usebackq tokens=*" %%a IN ('%arg%') DO SET arg=%%~a
+ECHO Error: unrecognized argument "%arg%" 1>&2
+EXIT /B 3
 
-:: If there were any parsing errors then just exit
-IF NOT !result!==0 EXIT /B !result!
-
-ECHO    -b %bucket%
-ECHO    -k %key%
-ECHO    -p %profile%
-ECHO    -o %options%
-ECHO    filedir: %filedir%
 GOTO loop
 
 :continueParse
@@ -252,12 +250,15 @@ EXIT /B 0
 
 :: Create the AWS S3 multipart upload (can't pass null string to --metadata argument)
 SET filedir=%filedir:"=%
-ECHO Creating multipart upload for "%filedir%" to %key% in bucket %bucket%...
 SET options=%options:"=%
+ECHO.
+ECHO Creating multipart upload with options:
+ECHO    Bucket: %bucket%
+ECHO    Key: %key%
 IF NOT "%options%"=="" ECHO    Options: %options%
 SET RESPONSE_FILE=response.txt
 SET ERROR_FILE=error.txt
-aws s3api create-multipart-upload --bucket "%bucket%" --key "%key%" %options% --profile "%profile%"> "%RESPONSE_FILE%" 2> "%ERROR_FILE%"
+aws s3api create-multipart-upload --bucket %bucket% --key %key% %options% --profile %profile%> "%RESPONSE_FILE%" 2> "%ERROR_FILE%"
 
 :: Rethrow any error messages from the AWS API
 FOR /F %%i IN ("%ERROR_FILE%") DO SET size=%%~zi
@@ -270,15 +271,16 @@ IF %size% GTR 0 (
 DEL "%ERROR_FILE%"
 
 :: Store the new upload ID
+:: Remove double quotes, spaces, commas, and leading text from AWS response
 SET ID_FILE=upload-id.txt
 FINDSTR /C:"UploadId" "%RESPONSE_FILE%"> "%ID_FILE%"
 DEL "%RESPONSE_FILE%"
 SET /P uploadID= < "%ID_FILE%"
 DEL "%ID_FILE%"
-SET uploadID=%uploadID:"=%          &:: Remove double quotes
-SET uploadID=%uploadID: =%          &:: Remove spaces
-SET uploadID=%uploadID:,=%          &:: Remove commas
-SET uploadID=%uploadID:*:=%   &:: Remove leading text from AWS response
+SET uploadID=%uploadID:"=%
+SET uploadID=%uploadID: =%
+SET uploadID=%uploadID:,=%
+SET uploadID=%uploadID:*:=%
 ECHO Creation succeeded with upload-id:
 ECHO    %uploadID%
 
@@ -286,7 +288,6 @@ ECHO    %uploadID%
 SET RESPONSE_FILE=
 SET ERROR_FILE=
 SET ID_FILE=
-SET UPLOAD_STR=
 SET size=
 
 EXIT /B 0
@@ -303,8 +304,9 @@ SET numFiles=0
 FOR %%F IN ("%filedir%\*.*.*") DO SET /A numFiles+=1
 
 :: Add initial lines to parts JSON file
-ECHO Uploading object parts...
-> "%ETAGS_FILE%" (
+ECHO.
+ECHO Uploading object parts from directory "%filedir%"...
+> "%ETAGS_JSON%" (
     ECHO {
     ECHO    "Parts": [
 )
@@ -315,21 +317,21 @@ SET TMP_FILE=tmp.txt
 FOR %%F IN ("%filedir%\*.*.*") DO (
     :: Display progress
     SET /A counter+=1
-    ECHO Uploading part !counter!/%numFiles%: %%F
+    ECHO     Uploading part !counter!/%numFiles%: %%~nF
     
-    :: Get the ETag for this object part =%
-    : Trim leading spaces and remove escpaed quotes =%
-    echo uploadID: %uploadID%
-    aws s3api upload-part --bucket "%bucket%" --key "%key%" --part-number !counter! --body %%F --upload-id %uploadID% --profile "%profile%" | findstr ETag> "%TMP_FILE%"
+    :: Store the ETag for this object part
+     : Remove spaces, colons, and escaped double quotes
+    aws s3api upload-part --bucket %bucket% --key %key% --part-number !counter! --body "%%F" --upload-id %uploadID% --profile %profile% | findstr ETag> "%TMP_FILE%"
     SET /P etag= < "%TMP_FILE%"
     SET etag=!etag: =!
     SET etag=!etag::=: !
-    SET etag=!etag:\"="!
+    SET etag=!etag:\"=!
+    ECHO         !etag:"=!
     
     :: Export the JSON block for this part
      : Makes sure there's no comma after the last one!
     IF !counter!==%numFiles% (SET closeBrace=}) ELSE (SET closeBrace=},)
-    >> %ETAGS_FILE% (
+    >> "%ETAGS_JSON%" (
         ECHO        {
         ECHO            !etag!,
         ECHO            "PartNumber": !counter!
@@ -339,7 +341,7 @@ FOR %%F IN ("%filedir%\*.*.*") DO (
 DEL "%TMP_FILE%"
 
 :: Add final lines to parts JSON file
->> %ETAGS_FILE% (
+>> "%ETAGS_JSON%" (
     ECHO    ]
     ECHO }
 )
@@ -350,5 +352,40 @@ EXIT /B 0
 :: void completeMultipartUpload()
 ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 :completeMultipartUpload
+
+SETLOCAL EnableDelayedExpansion
+
+:: Create the AWS S3 multipart upload (can't pass null string to --metadata argument)
+SET filedir=%filedir:"=%
+ECHO.
+ECHO Completing the multipart upload to %key% in bucket %bucket%...
+SET RESPONSE_FILE=response.txt
+SET ERROR_FILE=error.txt
+aws s3api complete-multipart-upload --bucket %bucket% --key %key% --profile %profile% --multipart-upload file://"%ETAGS_JSON%" --upload-id %uploadID%> "%RESPONSE_FILE%" 2> "%ERROR_FILE%"
+DEL "%ETAGS_JSON%"
+
+:: Rethrow any error messages from the AWS API
+FOR /F %%i IN ("%ERROR_FILE%") DO SET size=%%~zi
+IF %size% GTR 0 (
+    ECHO Completion failed with error message: 1>&2
+    TYPE "%ERROR_FILE%" 1>&2
+    DEL "%ERROR_FILE%"
+    EXIT /B 1
+)
+DEL "%ERROR_FILE%"
+
+:: Store the new upload ID
+:: Remove double quotes, spaces, commas, and leading text from AWS response
+SET LOC_FILE=s3loc.txt
+FINDSTR /C:"Location" "%RESPONSE_FILE%"> "%LOC_FILE%"
+DEL "%RESPONSE_FILE%"
+SET /P s3loc= < "%LOC_FILE%"
+DEL "%LOC_FILE%"
+SET s3loc=%s3loc:"=%
+SET s3loc=%s3loc: =%
+SET s3loc=%s3loc:,=%
+SET s3loc=%s3loc:*:=%
+ECHO Completion succeeded with S3 location:
+ECHO     %s3loc%
 
 EXIT /B 0
