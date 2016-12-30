@@ -84,43 +84,49 @@ Conditions:
   
 Mappings:
   AmiMap:
+    # Harden AMI is "CIS Amazon Linux Benchmark v2.0.0.1 - Level 1" v2.0.0.1
+    # Don't harden AMI is "Amazon Linux AMI (HVM / 64-bit)" v2016.09.1.20161221
+    
     us-east-1:        # N. Virginia
       harden:     ami-733a0c64
-      dontHarden: ami-b73b63a0
+      dontHarden: ami-9be6f38c
     us-east-2:        # Ohio
       harden:     ami-fa653f9f
-      dontHarden: ami-58277d3d
+      dontHarden: ami-38cd975d
     us-west-1:        # N. California
       harden:     ami-5f3f6b3f
-      dontHarden: ami-23e8a343
+      dontHarden: ami-b73d6cd7
     us-west-2:        # Oregon
       harden:     ami-2347eb43
-      dontHarden: ami-5ec1673e
+      dontHarden: ami-1e299d7e
     eu-west-1:        # Ireland
       harden:     ami-f52f7286
-      dontHarden: ami-9398d3e0
+      dontHarden: ami-c51e3eb6
     eu-central-1:     #Frankfurt
       harden:     ami-949450fb
-      dontHarden: ami-f9619996
+      dontHarden: ami-211ada4e
     ap-northeast-1:   # Tokyo
       harden:     ami-69db6f08
-      dontHarden: ami-0c11b26d
+      dontHarden: ami-9f0c67f8
     ap-northeast-2:   # Seoul
       harden:     ami-20a0774e
-      dontHarden: ami-983ce8f6
+      dontHarden: ami-94bb6dfa
     ap-southeast-1:   # Singapore
       harden:     ami-4f892b2c
-      dontHarden: ami-b953f2da
+      dontHarden: ami-4dd6782e
     ap-southeast-2:   # Sydney
       harden:     ami-620f3101
-      dontHarden: ami-db704cb8
+      dontHarden: ami-28cff44b
     ap-south-1:       # Mumbai
       harden:     ami-c53146aa
-      dontHarden: ami-34b4c05b
+      dontHarden: ami-9fc7b0f0
     sa-east-1:        # Sao Paulo
       harden:     ami-dce876b0
-      dontHarden: ami-97831ffb
-  
+      dontHarden: ami-bb40d8d7
+    ca-central-1:     # Central Canada
+      harden:     ami-eb20928f          # CIS AMI not supported in Canada yet
+      dontHarden: ami-eb20928f
+    
 Resources:
   # Route Table for the new public subnet(s)
   PubRT:
