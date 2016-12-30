@@ -1,0 +1,191 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: Security group for bastion hosts
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Parameters:
+        - NumSshIngressCidrBlocks
+        - SshIngressCidrBlocks
+        - NumSshEgressCidrBlocks
+        - SshEgressCidrBlocks
+
+Parameters:
+  NumSshIngressCidrBlocks:
+    Type: Number
+    Default: 1
+    MinValue: 1
+    MaxValue: 5
+    Description: The number of CIDR blocks from which SSH requests into a bastion host will be accepted. The actual CIDR blocks must be entered in the SshIngressCidrBlocks parameter.  Allowing SSH from ANY address (0.0.0.0/0) is not recommended.
+    ConstraintDescription: must be an integer between 1 and 5 (inclusive)
+  SshIngressCidrBlocks:
+    Type: CommaDelimitedList
+    Default: 0.0.0.0/0
+    Description: An array of CIDR blocks that are separated by commas.  These are the actual CIDR blocks from which SSH requests into a bastion host will be accepted.  The total number of CIDR blocks should be one more than the total number of commas, and must match the number entered in NumSshIngressCidrBlocks.
+    ConstraintDescription: must be a comma-delimited list of valid CIDR blocks (e.g., 10.20.114.23/16), with no comma after the last item.
+  NumSshEgressCidrBlocks:
+    Type: Number
+    Default: 1
+    MinValue: 1
+    MaxValue: 5
+    Description: The number of CIDR blocks to which SSH requests from a bastion host may be sent. The actual CIDR blocks must be entered in the SshEgressCidrBlocks parameter.  Allowing SSH to ANY address (0.0.0.0/0) is not recommended.  Make sure that the SecurityGroup parameter also allows SSH egress to these IPs!
+    ConstraintDescription: must be an integer between 1 and 5 (inclusive)
+  SshEgressCidrBlocks:
+    Type: CommaDelimitedList
+    Default: 0.0.0.0/0
+    Description: An array of CIDR blocks that are separated by commas.  These are the actual CIDR blocks to which SSH requests from a bastion host may be sent.  The total number of CIDR blocks should be one more than the total number of commas, and must match the number entered in NumSshEgressCidrBlocks.
+    ConstraintDescription: must be a comma-delimited list of valid CIDR blocks (e.g., 10.20.114.23/16), with no comma after the last item.
+  
+Conditions:
+  SshIngressCidr5: !Equals [ !Ref NumSshIngressCidrBlocks, 5 ]
+  SshIngressCidr4: !Or [ !Equals [ !Ref NumSshIngressCidrBlocks, 4 ], !Condition SshIngressCidr5]
+  SshIngressCidr3: !Or [ !Equals [ !Ref NumSshIngressCidrBlocks, 3 ], !Condition SshIngressCidr4]
+  SshIngressCidr2: !Or [ !Equals [ !Ref NumSshIngressCidrBlocks, 2 ], !Condition SshIngressCidr3]
+  SshIngressCidr1: !Or [ !Equals [ !Ref NumSshIngressCidrBlocks, 1 ], !Condition SshIngressCidr2]
+  SshEgressCidr5: !Equals [ !Ref NumSshEgressCidrBlocks, 5 ]
+  SshEgressCidr4: !Or [ !Equals [ !Ref NumSshEgressCidrBlocks, 4 ], !Condition SshEgressCidr5]
+  SshEgressCidr3: !Or [ !Equals [ !Ref NumSshEgressCidrBlocks, 3 ], !Condition SshEgressCidr4]
+  SshEgressCidr2: !Or [ !Equals [ !Ref NumSshEgressCidrBlocks, 2 ], !Condition SshEgressCidr3]
+  SshEgressCidr1: !Or [ !Equals [ !Ref NumSshEgressCidrBlocks, 1 ], !Condition SshEgressCidr2]
+    
+Resources:
+  # Security Group for the bastion hosts
+  BastionSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !ImportValue MainVPC
+      GroupDescription: Allow SSH access from authorized computers, and SSH access to private subnets.  Also allow HTTP for automatic updates and NTP for clock synchronization.
+      SecurityGroupIngress:
+      - # ICMP traffic from anywhere
+        IpProtocol: icmp
+        FromPort: -1
+        ToPort: -1
+        CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+      - # HTTP for automatic updates
+        IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: 0.0.0.0/0
+      - # NTP to synchronize UTC time with a pool of public servers (only outbound rule required)
+        IpProtocol: udp
+        FromPort: 123
+        ToPort: 123
+        CidrIp: 0.0.0.0/0
+      - # SMTP to send cron output
+        IpProtocol: tcp
+        FromPort: 25
+        ToPort: 25
+        CidrIp: 0.0.0.0/0
+        
+  # SSH ingress rules
+  SshIngressSgRule1:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: SshIngressCidr1
+    Properties:
+      GroupId: !GetAtt BastionSG.GroupId
+      CidrIp: !Select [ 0, !Ref SshIngressCidrBlocks ]
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+  SshIngressSgRule2:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: SshIngressCidr2
+    Properties:
+      GroupId: !GetAtt BastionSG.GroupId
+      CidrIp: !Select [ 1, !Ref SshIngressCidrBlocks ]
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+  SshIngressSgRule3:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: SshIngressCidr3
+    Properties:
+      GroupId: !GetAtt BastionSG.GroupId
+      CidrIp: !Select [ 2, !Ref SshIngressCidrBlocks ]
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+  SshIngressSgRule4:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: SshIngressCidr4
+    Properties:
+      GroupId: !GetAtt BastionSG.GroupId
+      CidrIp: !Select [ 3, !Ref SshIngressCidrBlocks ]
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+  SshIngressSgRule5:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: SshIngressCidr5
+    Properties:
+      GroupId: !GetAtt BastionSG.GroupId
+      CidrIp: !Select [ 4, !Ref SshIngressCidrBlocks ]
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+  IngressFromSameSgRule:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !GetAtt BastionSG.GroupId
+      IpProtocol: -1
+      SourceSecurityGroupId: !GetAtt BastionSG.GroupId
+  
+  # SSH egress rules
+  SshEgressSgRule1:
+    Type: AWS::EC2::SecurityGroupEgress
+    Condition: SshEgressCidr1
+    Properties:
+      GroupId: !GetAtt BastionSG.GroupId
+      CidrIp: !Select [ 0, !Ref SshEgressCidrBlocks ]
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+  SshEgressSgRule2:
+    Type: AWS::EC2::SecurityGroupEgress
+    Condition: SshEgressCidr2
+    Properties:
+      GroupId: !GetAtt BastionSG.GroupId
+      CidrIp: !Select [ 1, !Ref SshEgressCidrBlocks ]
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+  SshEgressSgRule3:
+    Type: AWS::EC2::SecurityGroupEgress
+    Condition: SshEgressCidr3
+    Properties:
+      GroupId: !GetAtt BastionSG.GroupId
+      CidrIp: !Select [ 2, !Ref SshEgressCidrBlocks ]
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+  SshEgressSgRule4:
+    Type: AWS::EC2::SecurityGroupEgress
+    Condition: SshEgressCidr4
+    Properties:
+      GroupId: !GetAtt BastionSG.GroupId
+      CidrIp: !Select [ 3, !Ref SshEgressCidrBlocks ]
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+  SshEgressSgRule5:
+    Type: AWS::EC2::SecurityGroupEgress
+    Condition: SshEgressCidr5
+    Properties:
+      GroupId: !GetAtt BastionSG.GroupId
+      CidrIp: !Select [ 4, !Ref SshEgressCidrBlocks ]
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+  EgressToSameSgRule:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !GetAtt BastionSG.GroupId
+      IpProtocol: -1
+      SourceSecurityGroupId: !GetAtt BastionSG.GroupId
+          
+Outputs:
+  BastionSecurityGroup:
+    Value: !Ref BastionSG
+    Description: ID of the new bastion host security group
