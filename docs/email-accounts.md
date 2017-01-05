@@ -1,5 +1,8 @@
+# Filing and Business
+OhioArticlesOfOrganization filing@danwarecreations.com send/receive  
+
 # AWS Root Email
-AwsRoot danwarecreations@gmail.com
+AwsRoot danwarecreations@gmail.com receive  
 
 # DevOps
 AwsSecurityContact devops@danwarecreations.com receive  
