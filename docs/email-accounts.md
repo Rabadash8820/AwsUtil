@@ -4,14 +4,16 @@ AwsRoot danwarecreations@gmail.com
 # DevOps
 AwsSecurityContact devops@danwarecreations.com receive  
 AwsOperationsContact devops@danwarecreations.com receive  
-DnsRegistrantContact devops@danwarecreations.com receive  
-DnsAdministrativeContact devops@danwarecreations.com receive  
-DnsTechnicalContact devops@danwarecreations.com receive  
 Microsoft devops@danwarecreations.com receive  
 Unity devops@danwarecreations.com receive  
 Adobe devops@danwarecreations.com receive  
 AutoDesk devops@danwarecreations.com receive  
 Finale devops@danwarecreations.com receive  
+
+# DNS
+DnsRegistrantContact dnsadmin@danwarecreations.com receive  
+DnsAdministrativeContact dnsadmin@danwarecreations.com receive  
+DnsTechnicalContact dnsadmin@danwarecreations.com receive  
 
 # Social Media
 Facebook social@danwarecreations.com receive  
