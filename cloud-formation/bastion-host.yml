@@ -8,32 +8,36 @@ Metadata:
       - Label:
           default: Subnet Configuration
         Parameters:
-        - VpcStackName
+        - NetworkStackName
+        - SecurityStackName
         - AzName
         - SubnetCidrBlock
-        - NumSshIngressCidrBlocks
-        - SshIngressCidrBlocks
-        - NumSshEgressCidrBlocks
-        - SshEgressCidrBlocks
       - Label:
           default: Bastion Host Instance Configuration
         Parameters:
         - PublicDns
         - HostedZone
         - HardenOS
-        - SecurityGroup
         - KeyPair
         - TimeZone
         - YumUpdateEmail
 
 Parameters:
-  VpcStackName:
+  NetworkStackName:
     Type: String
     Default: MainVPC
     MinLength: 1
     MaxLength: 255
     AllowedPattern: ^[a-zA-Z][-a-zA-Z0-9]*$
     Description: Name of an active CloudFormation stack that contains the networking resources needed to create a bastion host in its own public subnet.
+    ConstraintDescription: must contain only alphanumeric characters and/or hyphens, and start with a letter
+  SecurityStackName:
+    Type: String
+    Default: BastionSecurity
+    MinLength: 1
+    MaxLength: 255
+    AllowedPattern: ^[a-zA-Z][-a-zA-Z0-9]*$
+    Description: Name of an active CloudFormation stack that contains the security group and network ACL rules for a bastion host.
     ConstraintDescription: must contain only alphanumeric characters and/or hyphens, and start with a letter
   AzName:
     Type: AWS::EC2::AvailabilityZone::Name
@@ -44,30 +48,6 @@ Parameters:
     AllowedPattern: ^\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3}(\/\d{1,2})?$
     Description: The CIDR block for the new public subnet in the provided Availability Zone.
     ConstraintDescription: must be a valid CIDR block (e.g., 52.20.114.0/24)
-  NumSshIngressCidrBlocks:
-    Type: Number
-    Default: 1
-    MinValue: 1
-    MaxValue: 5
-    Description: The number of CIDR blocks from which SSH requests into this bastion host will be accepted. The actual CIDR blocks must be entered in the SshIngressCidrBlocks parameter.  Allowing SSH from ANY address (0.0.0.0/0) is not recommended.  Make sure that the SecurityGroup parameter also allows SSH ingress from these IPs!
-    ConstraintDescription: must be an integer between 1 and 5 (inclusive)
-  SshIngressCidrBlocks:
-    Type: CommaDelimitedList
-    Default: 0.0.0.0/0
-    Description: An array of CIDR blocks that are separated by commas.  These are the actual CIDR blocks from which SSH requests into this bastion host will be accepted.  The total number of CIDR blocks should be one more than the total number of commas, and must match the number entered in NumSshIngressCidrBlocks.
-    ConstraintDescription: must be a comma-delimited list of valid CIDR blocks (e.g., 10.20.114.23/16), with no comma after the last item.
-  NumSshEgressCidrBlocks:
-    Type: Number
-    Default: 1
-    MinValue: 1
-    MaxValue: 5
-    Description: The number of CIDR blocks to which SSH requests from this bastion host may be sent. The actual CIDR blocks must be entered in the SshEgressCidrBlocks parameter.  Allowing SSH to ANY address (0.0.0.0/0) is not recommended.  Make sure that the SecurityGroup parameter also allows SSH egress to these IPs!
-    ConstraintDescription: must be an integer between 1 and 5 (inclusive)
-  SshEgressCidrBlocks:
-    Type: CommaDelimitedList
-    Default: 0.0.0.0/0
-    Description: An array of CIDR blocks that are separated by commas.  These are the actual CIDR blocks to which SSH requests from this bastion host may be sent.  The total number of CIDR blocks should be one more than the total number of commas, and must match the number entered in NumSshEgressCidrBlocks.
-    ConstraintDescription: must be a comma-delimited list of valid CIDR blocks (e.g., 10.20.114.23/16), with no comma after the last item.
   
   PublicDns:
     Type: String
@@ -84,9 +64,6 @@ Parameters:
     Default: true
     AllowedValues: [ true, false]
     Description: Hardened bastion hosts will use the latest CIS AMI to improve security.  Unhardened hosts will use the latest Amazon Linux AMI.
-  SecurityGroup:
-    Type: AWS::EC2::SecurityGroup::Id
-    Description: REQUIRED!  The Security Group for the new bastion host.  It should allow SSH ingress from authorized networks, SSH egress to private networks, HTTP egress for automatic updates, NTP egress for timezone synchronization, and SMTP egress for cron notifications.
   KeyPair:
     Type: AWS::EC2::KeyPair::KeyName
     Description: The EC2 key pair needed to connect to all new bastion hosts.
@@ -103,16 +80,6 @@ Parameters:
     Description: Email to which notifications from automatic yum updates will be sent.  These notifications will only indicate that updates have been downloaded; the updates will still have to be installed manually.
   
 Conditions:
-  SshIngressCidr5: !Equals [ !Ref NumSshIngressCidrBlocks, 5 ]
-  SshIngressCidr4: !Or [ !Equals [ !Ref NumSshIngressCidrBlocks, 4 ], !Condition SshIngressCidr5]
-  SshIngressCidr3: !Or [ !Equals [ !Ref NumSshIngressCidrBlocks, 3 ], !Condition SshIngressCidr4]
-  SshIngressCidr2: !Or [ !Equals [ !Ref NumSshIngressCidrBlocks, 2 ], !Condition SshIngressCidr3]
-  SshIngressCidr1: !Or [ !Equals [ !Ref NumSshIngressCidrBlocks, 1 ], !Condition SshIngressCidr2]
-  SshEgressCidr5: !Equals [ !Ref NumSshEgressCidrBlocks, 5 ]
-  SshEgressCidr4: !Or [ !Equals [ !Ref NumSshEgressCidrBlocks, 4 ], !Condition SshEgressCidr5]
-  SshEgressCidr3: !Or [ !Equals [ !Ref NumSshEgressCidrBlocks, 3 ], !Condition SshEgressCidr4]
-  SshEgressCidr2: !Or [ !Equals [ !Ref NumSshEgressCidrBlocks, 2 ], !Condition SshEgressCidr3]
-  SshEgressCidr1: !Or [ !Equals [ !Ref NumSshEgressCidrBlocks, 1 ], !Condition SshEgressCidr2]
   Harden: !Equals [ !Ref HardenOS, true ]
   
 Mappings:
@@ -173,213 +140,6 @@ Resources:
       GatewayId: !ImportValue MainIGW
       RouteTableId: !Ref PubRT
   
-  # Network ACL for the new public subnet(s)
-  PubACL:
-    Type: AWS::EC2::NetworkAcl
-    Properties:
-      VpcId: !ImportValue MainVPC
-  InEphemeraAcl:
-    Type: AWS::EC2::NetworkAclEntry
-    Properties:
-      NetworkAclId: !Ref PubACL
-      RuleNumber: 100
-      Egress: false
-      RuleAction: allow
-      Protocol: 6
-      PortRange: { From: 1024, To: 65535 }
-      CidrBlock: 0.0.0.0/0
-  InIcmpAcl:
-    Type: AWS::EC2::NetworkAclEntry
-    Properties:
-      NetworkAclId: !Ref PubACL
-      RuleNumber: 110
-      Egress: false
-      RuleAction: allow
-      Protocol: 1
-      Icmp: { Code: -1, Type: -1 }
-      CidrBlock: 0.0.0.0/0
-  InHttpAcl:
-    Type: AWS::EC2::NetworkAclEntry
-    Properties:
-      NetworkAclId: !Ref PubACL
-      RuleNumber: 120
-      Egress: false
-      RuleAction: allow
-      Protocol: 6
-      CidrBlock: 0.0.0.0/0
-      PortRange: { From: 80, To: 80 }
-  InNtpAcl:     # Both outbound and inbound ACL entries required
-    Type: AWS::EC2::NetworkAclEntry
-    Properties:
-      NetworkAclId: !Ref PubACL
-      RuleNumber: 130
-      Egress: false
-      RuleAction: allow
-      Protocol: 17
-      CidrBlock: 0.0.0.0/0
-      PortRange: { From: 123, To: 123 }
-  InSshAcl1:
-    Condition: SshIngressCidr1
-    Type: AWS::EC2::NetworkAclEntry
-    Properties:
-      NetworkAclId: !Ref PubACL
-      RuleNumber: 141
-      Egress: false
-      RuleAction: allow
-      Protocol: 6
-      PortRange: { From: 22, To: 22 }
-      CidrBlock: !Select [ 0, !Ref SshIngressCidrBlocks ]
-  InSshAcl2:
-    Condition: SshIngressCidr2
-    Type: AWS::EC2::NetworkAclEntry
-    Properties:
-      NetworkAclId: !Ref PubACL
-      RuleNumber: 142
-      Egress: false
-      RuleAction: allow
-      Protocol: 6
-      PortRange: { From: 22, To: 22 }
-      CidrBlock: !Select [ 1, !Ref SshIngressCidrBlocks ]
-  InSshAcl3:
-    Condition: SshIngressCidr3
-    Type: AWS::EC2::NetworkAclEntry
-    Properties:
-      NetworkAclId: !Ref PubACL
-      RuleNumber: 143
-      Egress: false
-      RuleAction: allow
-      Protocol: 6
-      PortRange: { From: 22, To: 22 }
-      CidrBlock: !Select [ 2, !Ref SshIngressCidrBlocks ]
-  InSshAcl4:
-    Condition: SshIngressCidr4
-    Type: AWS::EC2::NetworkAclEntry
-    Properties:
-      NetworkAclId: !Ref PubACL
-      RuleNumber: 144
-      Egress: false
-      RuleAction: allow
-      Protocol: 6
-      PortRange: { From: 22, To: 22 }
-      CidrBlock: !Select [ 3, !Ref SshIngressCidrBlocks ]
-  InSshAcl5:
-    Condition: SshIngressCidr5
-    Type: AWS::EC2::NetworkAclEntry
-    Properties:
-      NetworkAclId: !Ref PubACL
-      RuleNumber: 145
-      Egress: false
-      RuleAction: allow
-      Protocol: 6
-      PortRange: { From: 22, To: 22 }
-      CidrBlock: !Select [ 4, !Ref SshIngressCidrBlocks ]
-
-  OutEphemeraAcl:
-    Type: AWS::EC2::NetworkAclEntry
-    Properties:
-      NetworkAclId: !Ref PubACL
-      RuleNumber: 100
-      Egress: true
-      RuleAction: allow
-      Protocol: 6
-      PortRange: { From: 1024, To: 65535 }
-      CidrBlock: 0.0.0.0/0
-  OutIcmpAcl:
-    Type: AWS::EC2::NetworkAclEntry
-    Properties:
-      NetworkAclId: !Ref PubACL
-      RuleNumber: 110
-      Egress: true
-      RuleAction: allow
-      Protocol: 1
-      Icmp: { Code: -1, Type: -1 }
-      CidrBlock: 0.0.0.0/0
-  OutHttpAcl:
-    Type: AWS::EC2::NetworkAclEntry
-    Properties:
-      NetworkAclId: !Ref PubACL
-      RuleNumber: 120
-      Egress: true
-      RuleAction: allow
-      Protocol: 6
-      PortRange: { From: 80, To: 80 }
-      CidrBlock: 0.0.0.0/0
-  OutNtpAcl:     # Both outbound and inbound ACL entries required
-    Type: AWS::EC2::NetworkAclEntry
-    Properties:
-      NetworkAclId: !Ref PubACL
-      RuleNumber: 130
-      Egress: true
-      RuleAction: allow
-      Protocol: 17
-      CidrBlock: 0.0.0.0/0
-      PortRange: { From: 123, To: 123 }
-  OutSmtpAcl:
-    Type: AWS::EC2::NetworkAclEntry
-    Properties:
-      NetworkAclId: !Ref PubACL
-      RuleNumber: 140
-      Egress: true
-      RuleAction: allow
-      Protocol: 6
-      CidrBlock: 0.0.0.0/0
-      PortRange: { From: 25, To: 25 }
-  OutSshAcl1:
-    Condition: SshEgressCidr1
-    Type: AWS::EC2::NetworkAclEntry
-    Properties:
-      NetworkAclId: !Ref PubACL
-      RuleNumber: 151
-      Egress: true
-      RuleAction: allow
-      Protocol: 6
-      PortRange: { From: 22, To: 22 }
-      CidrBlock: !Select [ 0, !Ref SshEgressCidrBlocks ]
-  OutSshAcl2:
-    Condition: SshEgressCidr2
-    Type: AWS::EC2::NetworkAclEntry
-    Properties:
-      NetworkAclId: !Ref PubACL
-      RuleNumber: 152
-      Egress: true
-      RuleAction: allow
-      Protocol: 6
-      PortRange: { From: 22, To: 22 }
-      CidrBlock: !Select [ 1, !Ref SshEgressCidrBlocks ]
-  OutSshAcl3:
-    Condition: SshEgressCidr3
-    Type: AWS::EC2::NetworkAclEntry
-    Properties:
-      NetworkAclId: !Ref PubACL
-      RuleNumber: 153
-      Egress: true
-      RuleAction: allow
-      Protocol: 6
-      PortRange: { From: 22, To: 22 }
-      CidrBlock: !Select [ 2, !Ref SshEgressCidrBlocks ]
-  OutSshAcl4:
-    Condition: SshEgressCidr4
-    Type: AWS::EC2::NetworkAclEntry
-    Properties:
-      NetworkAclId: !Ref PubACL
-      RuleNumber: 154
-      Egress: true
-      RuleAction: allow
-      Protocol: 6
-      PortRange: { From: 22, To: 22 }
-      CidrBlock: !Select [ 3, !Ref SshEgressCidrBlocks ]
-  OutSshAcl5:
-    Condition: SshEgressCidr5
-    Type: AWS::EC2::NetworkAclEntry
-    Properties:
-      NetworkAclId: !Ref PubACL
-      RuleNumber: 155
-      Egress: true
-      RuleAction: allow
-      Protocol: 6
-      PortRange: { From: 22, To: 22 }
-      CidrBlock: !Select [ 4, !Ref SshEgressCidrBlocks ]
-  
   # Define the new public subnet
   Subnet:
     Type: AWS::EC2::Subnet
@@ -396,7 +156,7 @@ Resources:
   ACLAssoc:
     Type: AWS::EC2::SubnetNetworkAclAssociation
     Properties:
-      NetworkAclId: !Ref PubACL
+      NetworkAclId: !ImportValue BastionNetworkACL
       SubnetId: !Ref Subnet
           
   # Define the EC2 instance
@@ -414,7 +174,7 @@ Resources:
       - DeviceIndex: 0
         AssociatePublicIpAddress: true
         DeleteOnTermination: true
-        GroupSet: [ !Ref SecurityGroup ]
+        GroupSet: [ !ImportValue BastionSecurityGroup ]
         SubnetId: !Ref Subnet
         Description: Network interface for a bastion host
       SourceDestCheck: true
