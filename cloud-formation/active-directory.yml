@@ -92,18 +92,7 @@ Mappings:
       "1": 10.0.140.0/24
       "2": 10.0.141.0/24
 
-Resources:        
-  # Route Table for the new public subnet(s)
-  PubRT:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !ImportValue MainVPC
-  InternetRoute:
-    Type: AWS::EC2::Route
-    Properties:
-      DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !ImportValue MainIGW
-      RouteTableId: !Ref PubRT
+Resources:
   
   # Network ACL for the new public subnet(s)
   PubACL:
@@ -152,7 +141,7 @@ Resources:
   RTAssoc1:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      RouteTableId: !Ref PubRT
+      RouteTableId: !ImportValue PublicRouteTable
       SubnetId: !Ref DirectorySubnet1
   ACLAssoc1:
     Type: AWS::EC2::SubnetNetworkAclAssociation
@@ -170,7 +159,7 @@ Resources:
   RTAssoc2:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      RouteTableId: !Ref PubRT
+      RouteTableId: !ImportValue PublicRouteTable
       SubnetId: !Ref DirectorySubnet2
   ACLAssoc2:
     Type: AWS::EC2::SubnetNetworkAclAssociation

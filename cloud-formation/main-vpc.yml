@@ -31,6 +31,16 @@ Resources:
     Properties:
       InternetGatewayId: !Ref MainIGW
       VpcId: !Ref MainVPC
+  PubRT:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MainVPC
+  InternetRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref MainIGW
+      RouteTableId: !Ref PubRT
 
 Outputs:
   MainVPC:
@@ -38,8 +48,8 @@ Outputs:
     Description: The ID of the new Virtual Private Cloud
     Export:
       Name: MainVPC
-  MainIGW:
-    Value: !Ref MainIGW
+  PublicRouteTable:
+    Value: !Ref PubRT
     Description: The ID of the new Internet Gateway
     Export:
-      Name: MainIGW
+      Name: PublicRouteTable
