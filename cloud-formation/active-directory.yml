@@ -1,12 +1,20 @@
 AWSTemplateFormatVersion: 2010-09-09
 
-Description: IAM principals, and an Active Directory
+Description: A Samba 4 Active Directory Compatible Server
 
 Metadata:
   AWS::CloudFormation::Interface: 
     ParameterGroups:
-    - Parameters:
+    -
+      Label:
+        default: Subnet Configuration
+      Parameters:
       - NetworkStackName
+      - SubnetCidrBlocks
+    - 
+      Label:
+        default: Active Directory Configuration
+      Parameters:
       - DirectoryName
       - DirectoryNetbiosName
       - DirectoryPassword
@@ -20,6 +28,12 @@ Parameters:
     AllowedPattern: ^[a-zA-Z][-a-zA-Z0-9]*$
     Description: Name of an active CloudFormation stack that contains the networking resources needed to create a bastion host in its own public subnet.
     ConstraintDescription: must contain only alphanumeric characters and/or hyphens, and start with a letter
+  SubnetCidrBlocks:
+    Type: CommaDelimitedList
+    Default: 10.0.128.0/28, 10.0.128.16/28
+    Description: A list of two subnet IDs for the directory servers.  AWS Directory Service creates a directory server and a DNS server in each subnet.
+    ConstraintDescription: must be two valid CIDR blocks (e.g., 10.20.114.23/16) separated by a comma, with no comma after the second block.
+    
   DirectoryName:
     Type: String
     Default: corp.example.com
@@ -42,58 +56,8 @@ Parameters:
     AllowedPattern: (?=^.{8,64}$)((?=.*\d)(?=.*[A-Z])(?=.*[a-z])|(?=.*\d)(?=.*[^A-Za-z0-9\s])(?=.*[a-z])|(?=.*[^A-Za-z0-9\s])(?=.*[A-Z])(?=.*[a-z])|(?=.*\d)(?=.*[A-Z])(?=.*[^A-Za-z0-9\s]))^.*
     Description: The password for the default directory administrative user.
     ConstraintDescription: "must have an 8-character minimum with at least one character having at least three of these attributes: lowercase, uppercase, numeric, and special characters."
-  
-Mappings:
-  AzMap:
-    us-east-1:          # N. Virginia
-      "1": us-east-1a
-      "2": us-east-1b
-    us-east-2:          # Ohio
-      "1": us-east-2a
-      "2": us-east-2b
-    us-west-1:          # N. California
-      "1": us-west-1a
-      "2": us-west-1c
-    us-west-2:          # Oregon
-      "1": us-west-2a
-      "2": us-west-2b
-    eu-west-1:          # Ireland
-      "1": eu-west-1a
-      "2": eu-west-1b
-    eu-west-2:          # London
-      "1": eu-west-2a
-      "2": eu-west-2b
-    eu-central-1:       # Frankfurt
-      "1": eu-central-1a
-      "2": eu-central-1b
-    ap-northeast-1:     # Tokyo
-      "1": ap-northeast-1a
-      "2": ap-northeast-1c
-    ap-northeast-2:     # Seoul
-      "1": ap-northeast-2a
-      "2": ap-northeast-2c
-    ap-southeast-1:     # Singapore
-      "1": ap-southeast-1a
-      "2": ap-southeast-1b
-    ap-southeast-2:     # Sydney
-      "1": ap-southeast-2a
-      "2": ap-southeast-2b
-    ap-south-1:         # Mumbai
-      "1": ap-south-1a
-      "2": ap-south-1b
-    sa-east-1:          # Sao Paulo
-      "1": sa-east-1a
-      "2": sa-east-1c
-    ca-central-1:       # Central Canada
-      "1": ca-central-1a
-      "2": ca-central-1b
-  CidrMap:
-    AZ:
-      "1": 10.0.140.0/24
-      "2": 10.0.141.0/24
 
 Resources:
-  
   # Network ACL for the new public subnet(s)
   PubACL:
     Type: AWS::EC2::NetworkAcl
@@ -135,8 +99,8 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !ImportValue MainVPC
-      AvailabilityZone: !FindInMap [AzMap, !Ref "AWS::Region", 1]
-      CidrBlock: !FindInMap [CidrMap, AZ, 1]
+      AvailabilityZone: !Select [ 0, !GetAZs ]
+      CidrBlock: !Select [ 0, !Ref SubnetCidrBlocks ]
       MapPublicIpOnLaunch: true
   RTAssoc1:
     Type: AWS::EC2::SubnetRouteTableAssociation
@@ -153,8 +117,8 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !ImportValue MainVPC
-      AvailabilityZone: !FindInMap [AzMap, !Ref "AWS::Region", 2]
-      CidrBlock: !FindInMap [CidrMap, AZ, 2]
+      AvailabilityZone: !Select [ 1, !GetAZs ]
+      CidrBlock: !Select [ 1, !Ref SubnetCidrBlocks ]
       MapPublicIpOnLaunch: true
   RTAssoc2:
     Type: AWS::EC2::SubnetRouteTableAssociation
@@ -179,7 +143,7 @@ Resources:
       Size: Small
       VpcSettings:
         VpcId: !ImportValue MainVPC
-        SubnetIds:
+        SubnetIds: 
         - !Ref DirectorySubnet1
         - !Ref DirectorySubnet2
             
