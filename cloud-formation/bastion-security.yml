@@ -38,7 +38,7 @@ Parameters:
     ConstraintDescription: must be an integer between 1 and 5 (inclusive)
   SshEgressCidrBlocks:
     Type: CommaDelimitedList
-    Default: 0.0.0.0/0
+    Default: 10.0.0.0/16
     Description: An array of CIDR blocks that are separated by commas.  These are the actual CIDR blocks to which SSH requests from a bastion host may be sent.  The total number of CIDR blocks should be one more than the total number of commas, and must match the number entered in NumSshEgressCidrBlocks.
     ConstraintDescription: must be a comma-delimited list of valid CIDR blocks (e.g., 10.20.114.23/16), with no comma after the last item.
   
