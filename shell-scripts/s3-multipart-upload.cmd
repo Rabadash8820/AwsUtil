@@ -3,12 +3,14 @@
 
 SETLOCAL EnableDelayedExpansion
 
-:: Global files
-SET ERROR_FILE=error.txt
-SET RESPONSE_FILE=response.txt
-SET UPLOAD_ID_FILE=upload-id.txt
-SET ETAGS_JSON=%CD%\upload-part-etags.json
+:: Global paths
+SET tempDir=%TEMP%\s3-multipart-upload
+SET ERROR_FILE=%tempDir%\error.txt
+SET RESPONSE_FILE=%tempDir%\response.txt
+SET UPLOAD_ID_FILE=%tempDir%\upload-id.txt
+SET ETAGS_JSON=%tempDir%\upload-part-etags.json
 
+IF NOT EXIST "%tempDir%" MKDIR "%tempDir%"
 TYPE NUL > "%ERROR_FILE%"
 TYPE NUL > "%RESPONSE_FILE%"
 TYPE NUL > "%UPLOAD_ID_FILE%"
@@ -28,6 +30,7 @@ SET errCode=0
 
 :: Parse arguments
 :: If there were any errors then display messages and exit
+DEL /F /Q /S "%tempDir%\*" > NUL
 CALL :parseArgs %* & IF ERRORLEVEL 1 GOTO Catch
 
 :: If help was requested then show proper usage and exit
@@ -49,16 +52,15 @@ SET /P uploadID= < "%UPLOAD_ID_FILE%"
 CALL :uploadParts & IF ERRORLEVEL 1 GOTO Catch
 CALL :completeMultipartUpload & IF ERRORLEVEL 1 GOTO Catch
 
+GOTO Finally
+
 :Catch
 TYPE "%ERROR_FILE%" 1>&2
 SET errCode=1
 GOTO Finally
 
 :Finally
-DEL "%ERROR_FILE%"
-DEL "%RESPONSE_FILE%"
-DEL "%UPLOAD_ID_FILE%"
-DEL "%ETAGS_JSON%"
+RMDIR /S /Q "%tempDir%"
 EXIT /B %errCode%
 
 ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -74,21 +76,23 @@ SET filename=%1
 SET extended=%2
 
 :: Return basic usage
-ECHO Usage: s3-multipart-upload [options] ^<filedir^> >> "%filename%"
+ECHO Usage: s3-multipart-upload [options] ^<partsdir^> >> "%filename%"
 IF %extended%==false (EXIT /B 0)
 
 :: If the extended description was requested, then return this text
 >> "%filename%" (
     ECHO.
-    ECHO    filedir          Path to the directory containing the object's parts.  The ONLY
-    ECHO                     files that should be in this directory are the sequential parts
-    ECHO                     of the object to be uploaded (generated, e.g., by HJ Split for
-    ECHO                     Windows^).
+    ECHO    partsdir         Path to the directory containing the object's parts.  The ONLY
+    ECHO                     files in this directory must be the sequential parts of the 
+    ECHO                     object to upload (generated, e.g., by HJ Split for Windows^).
     ECHO.
-    ECHO                     These files should fit the pattern "*.*.*".  For example, you
-    ECHO                     might have a file called "mydata.zip" that was split into
-    ECHO                     10 parts with HJ Split, generating the files mydata.zip.001,
-    ECHO                     mydata.zip.002, etc., in a directory such as "C:\data\mydata\".
+    ECHO                     The names of the part files are assumed to fit the pattern
+    ECHO                     "filename.ext.123".  For example, you might have a file called
+    ECHO                     "mydata.zip" that was split into 10 parts with HJ Split, 
+    ECHO                     generating the files "mydata.zip.001", "mydata.zip.002", up to
+    ECHO                     "mydata.zip.010".  You would place these part files in their
+    ECHO                     own directory, such as "C:\data\mydata\", and then call this
+    ECHO                     script on that directory.
     ECHO.
     ECHO    -b, --bucket     Required.  Name of the AWS S3 bucket to which you are uploading.
     ECHO    -h, --help       Show this help text.
@@ -102,6 +106,8 @@ IF %extended%==false (EXIT /B 0)
     ECHO    -o, --options    Options to pass to the create-multipart-upload command.  Make
     ECHO                     sure all options are enclosed in double quotes, e.g.:
     ECHO                     `--options "--metadata key=value --storage-class STANDARD_IA"`
+    ECHO.
+    ECHO    Options can also be specified with a '/' character.  E.g., '/H' to show help.
 )
 
 EXIT /B 0
@@ -127,12 +133,15 @@ FOR /F "usebackq tokens=*" %%a IN ('%arg%') DO (SET arg=%%~a)   &:: Remove doubl
 IF "%arg%"=="" GOTO continueParse
 
 :: Parse part directory path
-IF NOT "%arg:~0,1%"=="-" (
-    IF DEFINED filedir (
+SET good=true
+IF "%arg:~0,1%"=="-" (SET good=false)
+IF "%arg:~0,1%"=="/" (SET good=false)
+IF %good%==true (
+    IF DEFINED partsdir (
         ECHO Error: You may provide the path to only one directory with object parts to upload! >> "%ERROR_FILE%"
         EXIT /B 1
     ) ELSE (
-        SET filedir=%arg%
+        SET partsdir=%arg%
         SHIFT
         GOTO loop
     )
@@ -149,7 +158,8 @@ IF %isBucket%==true (
     SET arg=%2
     SET good=true
     IF "!arg!"=="" SET good=false
-    IF "!arg:~0,1!"=="-" SET good=false
+    IF "!arg:~0,1!"=="-" (SET good=false)
+    IF "!arg:~0,1!"=="/" (SET good=false)
     IF !good!==true (SHIFT) ELSE (ECHO Error: --bucket requires an argument >> "%ERROR_FILE%" & EXIT /B 1)
     SET bucket=!arg!
     SHIFT
@@ -180,7 +190,8 @@ IF %isKey%==true (
     SET arg=%2
     SET good=true
     IF "!arg!"=="" SET good=false
-    IF "!arg:~0,1!"=="-" SET good=false
+    IF "!arg:~0,1!"=="-" (SET good=false)
+    IF "!arg:~0,1!"=="/" (SET good=false)
     IF !good!==true (SHIFT) ELSE (ECHO Error: --key requires an argument >> "%ERROR_FILE%" & EXIT /B 1)
     SET key=!arg!
     SHIFT
@@ -198,7 +209,8 @@ IF %isOptions%==true (
     SET arg=%2
     SET good=true
     IF "!arg!"=="" SET good=false
-    IF "!arg:~0,1!"=="-" SET good=false
+    IF "!arg:~0,1!"=="-" (SET good=false)
+    IF "!arg:~0,1!"=="/" (SET good=false)
     IF !good!==true (SHIFT) ELSE (ECHO Error: --options requires an argument >> "%ERROR_FILE%" & EXIT /B 1)
     SET options=!arg!
     SHIFT
@@ -216,7 +228,8 @@ IF %isProfile%==true (
     SET arg=%2
     SET good=true
     IF "!arg!"=="" SET good=false
-    IF "!arg:~0,1!"=="-" SET good=false
+    IF "!arg:~0,1!"=="-" (SET good=false)
+    IF "!arg:~0,1!"=="/" (SET good=false)
     IF !good!==true (SHIFT) ELSE (ECHO Error: --profile requires an argument >> "%ERROR_FILE%" & EXIT /B 1)
     SET profile=!arg!
     SHIFT
@@ -239,7 +252,7 @@ IF %help%==true (EXIT /B 0)
 :: Ensure required arguments were provided
 SET valid=true
 IF NOT DEFINED bucket (SET valid=false & ECHO Error: You must provide a bucket name (--bucket^)! >> "%ERROR_FILE%")
-IF NOT DEFINED filedir (SET valid=false & ECHO Error: You must provide a path to a directory containing object parts! >> "%ERROR_FILE%")
+IF NOT DEFINED partsdir (SET valid=false & ECHO Error: You must provide a path to a directory containing object parts! >> "%ERROR_FILE%")
 IF NOT DEFINED key (SET valid=false & ECHO Error: You must provide an object key (--key^)! >> "%ERROR_FILE%")
 
 :: Try to set the missing AWS credentials profile with an environment variable
@@ -271,31 +284,31 @@ EXIT /B 0
 
 
 ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-:: int validatePath(string filedir)
+:: int validatePath(string partsdir)
 ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 :validatePath
 
 SETLOCAL EnableDelayedExpansion
 
 :: Make sure the provided path exists
-IF NOT EXIST %filedir% (
-    ECHO Error: Could not find the path "%filedir%" >> "%ERROR_FILE%"
+IF NOT EXIST %partsdir% (
+    ECHO Error: Could not find the path "%partsdir%" >> "%ERROR_FILE%"
     EXIT /B 1
 )
 
 :: Make sure the provided path is a directory, not a file
-IF NOT EXIST "%filedir%\*" (
+IF NOT EXIST "%partsdir%\*" (
     ECHO Error: The provided path must be a directory. >> "%ERROR_FILE%"
-    ECHO "%filedir%" is a file. >> "%ERROR_FILE%"
+    ECHO "%partsdir%" is a file. >> "%ERROR_FILE%"
     EXIT /B 1
 )
 
 :: Get the number of files and object parts in the provided directory
 SET numFiles=0
-FOR %%f IN ("%filedir%\*") DO SET /A numFiles+=1
+FOR %%f IN ("%partsdir%\*") DO SET /A numFiles+=1
 
 SET numParts=0
-FOR %%F IN ("%filedir%\*") DO (
+FOR %%F IN ("%partsdir%\*") DO (
     SET ext=%%~xF
     SET ext=!ext:.=!
     SET nonNumeric=
@@ -332,10 +345,10 @@ EXIT /B 0
 SETLOCAL EnableDelayedExpansion
 
 SET uploadIdFile=%1
-SET createErrFile=createErr.txt
+SET createErrFile=%tempDir%\createErr.txt
 
 :: Create the AWS S3 multipart upload (can't pass null string to --metadata argument)
-SET filedir=%filedir:"=%
+SET partsdir=%partsdir:"=%
 SET options=%options:"=%
 ECHO.
 ECHO Creating multipart upload with options:
@@ -369,21 +382,21 @@ ECHO    %uploadID%
 EXIT /B 0
 
 ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-:: int uploadParts(string filedir)
+:: int uploadParts(string partsdir)
 ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 :uploadParts
 
 SETLOCAL EnableDelayedExpansion
 
-SET uploadErrFile=uploadErr.txt
+SET uploadErrFile=%tempDir%\uploadErr.txt
 
 :: Count the number of file parts in the provided directory
 SET numFiles=0
-FOR %%F IN ("%filedir%\*") DO SET /A numFiles+=1
+FOR %%F IN ("%partsdir%\*") DO SET /A numFiles+=1
 
 :: Add initial lines to parts JSON file
 ECHO.
-ECHO Uploading object parts from directory "%filedir%"...
+ECHO Uploading object parts from directory "%partsdir%"...
 > "%ETAGS_JSON%" (
     ECHO {
     ECHO    "Parts": [
@@ -392,7 +405,7 @@ ECHO Uploading object parts from directory "%filedir%"...
 :: Add a JSON block for each object part
 SET counter=0
 SET numErrs=0
-FOR %%F IN ("%filedir%\*") DO (
+FOR %%F IN ("%partsdir%\*") DO (
     :: Display progress
     SET /A counter+=1
     ECHO     Uploading part !counter!/%numFiles%: %%~nF%%~xF  ^(%%~zF bytes^)
@@ -453,10 +466,10 @@ EXIT /B %numErrs%
 
 SETLOCAL EnableDelayedExpansion
 
-SET completeErrFile=completeErr.txt
+SET completeErrFile=%tempDir%\completeErr.txt
 
 :: Create the AWS S3 multipart upload (can't pass null string to --metadata argument)
-SET filedir=%filedir:"=%
+SET partsdir=%partsdir:"=%
 ECHO.
 ECHO Completing the multipart upload to %key% in bucket %bucket%...
 aws s3api complete-multipart-upload --bucket %bucket% --key %key% --profile %profile% --multipart-upload file://"%ETAGS_JSON%" --upload-id %uploadID%> "%RESPONSE_FILE%" 2> "%completeErrFile%"
@@ -473,7 +486,7 @@ DEL "%completeErrFile%"
 
 :: Store the new upload ID
 :: Remove double quotes, spaces, commas, and leading text from AWS response
-SET LOC_FILE=s3loc.txt
+SET LOC_FILE=%tempDir%\s3loc.txt
 FINDSTR /C:"Location" "%RESPONSE_FILE%"> "%LOC_FILE%"
 SET /P s3loc= < "%LOC_FILE%"
 DEL "%LOC_FILE%"
