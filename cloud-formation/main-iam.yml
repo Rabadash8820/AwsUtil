@@ -12,9 +12,9 @@ Metadata:
 Parameters:
   OrganizationPrefix:
     Type: String
-    Default: ""
+    Default: "mycompany"
     AllowedPattern: ^[\w+=,.@-]*$
-    Description: An optional prefix to append to all IAM principals (e.g., "mycompany-")
+    Description: An optional prefix to append to all IAM principals (e.g., "mycompany")
     ConstraintDescription: "must be a string of upper and lowercase alphanumeric characters with no spaces, and any of the following characters: =,.@-.  Note that group names are not distinguished by case."
   AdminPassword:
     Type: String
@@ -27,21 +27,21 @@ Resources:
   AdminGroup:
     Type: AWS::IAM::Group
     Properties:
-      GroupName: !Join ["", [ !Ref OrganizationPrefix, admins ] ]
+      GroupName: !Join ["-", [ !Ref OrganizationPrefix, admins ] ]
       Path: /admins/
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/AdministratorAccess
   PowerUserGroup:
     Type: AWS::IAM::Group
     Properties:
-      GroupName: !Join ["", [ !Ref OrganizationPrefix, power-users ] ]
+      GroupName: !Join ["-", [ !Ref OrganizationPrefix, power-users ] ]
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/PowerUserAccess
       Path: /power-users/
   PowerUserMinusPortalGroup:
     Type: AWS::IAM::Group
     Properties:
-      GroupName: !Join ["", [ !Ref OrganizationPrefix, power-users-minus-portal ] ]
+      GroupName: !Join ["-", [ !Ref OrganizationPrefix, power-users-minus-portal ] ]
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/PowerUserAccess
       Path: /power-users-minus-portal/
@@ -60,7 +60,7 @@ Resources:
   ReadOnlyGroup:
     Type: AWS::IAM::Group
     Properties:
-      GroupName: !Join ["", [ !Ref OrganizationPrefix, read-only-users ] ]
+      GroupName: !Join ["-", [ !Ref OrganizationPrefix, read-only-users ] ]
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/ReadOnlyAccess
       Path: /read-only-users/
@@ -69,7 +69,7 @@ Resources:
   AdminUser:
     Type: AWS::IAM::User
     Properties:
-      UserName: !Join ["", [ !Ref OrganizationPrefix, admin ] ]
+      UserName: !Join ["-", [ !Ref OrganizationPrefix, admin ] ]
       Path: /admins/admin/
       Groups: [ !Ref AdminGroup ]
       LoginProfile:

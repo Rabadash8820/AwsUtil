@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: 2010-09-09
 
-Description: An S3 bucket for logs, and IAM principals for managing S3 in the AWS account
+Description: An S3 bucket for bucket server access logs, and IAM principals for managing S3 in the AWS account
 
 Metadata:
   AWS::CloudFormation::Interface: 
@@ -56,7 +56,7 @@ Resources:
       Path: /s3-admins/
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/AmazonS3FullAccess
-  ReadOnlyGroup:
+  S3ReadOnlyGroup:
     Type: AWS::IAM::Group
     Properties:
       GroupName: !Join ["-", [ !Ref OrganizationPrefix, s3-read-only ] ]
@@ -68,3 +68,9 @@ Outputs:
   LogsBucket:
     Value: !Ref LogsBucket
     Description: Name of the new S3 logs bucket.
+  S3AdminGroup:
+    Value: !Ref S3Admins
+    Description: Name of the new S3 admin group.
+  S3ReadOnlyGroup:
+    Value: !Ref S3ReadOnlyGroup
+    Description: Name of the new S3 read-only group.
