@@ -18,7 +18,7 @@ Parameters:
     ConstraintDescription: "must be a string of upper and lowercase alphanumeric characters with no spaces, and any of the following characters: =,.@-.  Note that group names are not distinguished by case."
   LogBucketName:
     Type: String
-    Default: lambda
+    Default: mycompany-logs
     AllowedPattern: ^[a-z0-9.-]+$
     Description: The name of the bucket to which the Lambda-function S3 bucket will store logs.
     ConstraintDescription: must contain only lowercase letters, numbers, periods (.), and dashes (-).
@@ -40,32 +40,45 @@ Resources:
     Properties:
       GroupName: !Join ["-", [ !Ref OrganizationPrefix, lambda-admins ] ]
       Path: /lambda-admins/
-      ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/AWSLambdaFullAccess
+      ManagedPolicyArns: [ "arn:aws:iam::aws:policy/AWSLambdaFullAccess" ]
+      Policies:
+      - PolicyName: LambdaBucketAccess
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - # Prevent changing permissions in any way on the Lambda bucket
+            Effect: Deny
+            Action:
+            - s3:DeleteBucket
+            - s3:DeleteBucketPolicy
+            - s3:PutBucketPolicy
+            - s3:PutBucketAcl
+            Resource:
+            - !Join ["", [ "arn:aws:s3:::", !Ref OrganizationPrefix, "-", !Ref "AWS::Region", "-", lambda ] ]
+            - !Join ["", [ "arn:aws:s3:::", !Ref OrganizationPrefix, "-", !Ref "AWS::Region", "-", lambda, "/*" ] ]
+          - # Prevent all S3 actions except listing buckets, on everything except the Lambda bucket (AWSLambdaFullAccess already allows s3:*)
+            Effect: Deny
+            NotAction: s3:ListAllMyBuckets
+            NotResource:
+            - !Join ["", [ "arn:aws:s3:::", !Ref OrganizationPrefix, "-", !Ref "AWS::Region", "-", lambda ] ]
+            - !Join ["", [ "arn:aws:s3:::", !Ref OrganizationPrefix, "-", !Ref "AWS::Region", "-", lambda, "/*" ] ]
   LambdaReadOnlyGroup:
     Type: AWS::IAM::Group
     Properties:
       GroupName: !Join ["-", [ !Ref OrganizationPrefix, lambda-read-only ] ]
-      ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/AWSLambdaReadOnlyAccess
       Path: /lambda-read-only/
-  LambdaBucketAccessPolicy:
-    Type: AWS::IAM::ManagedPolicy
-    Properties: 
-      Description: Allows Lambda users to work with the Lambda-functions S3 bucket.
-      Path: /lambda-bucket-access/
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-        -
-          Effect: Deny
-          Action: "s3:*"
-          NotResource:
-          - !Join ["", [ "arn:aws:s3:::", !Ref OrganizationPrefix, "-", !Ref "AWS::Region", "-", lambda ] ]
-          - !Join ["", [ "arn:aws:s3:::", !Ref OrganizationPrefix, "-", !Ref "AWS::Region", "-", lambda, "/*" ] ]
-      Groups:
-      - !Ref LambdaAdmins
-      - !Ref LambdaReadOnlyGroup
+      ManagedPolicyArns: [ "arn:aws:iam::aws:policy/AWSLambdaReadOnlyAccess" ]
+      Policies:
+      - PolicyName: LambdaBucketReadOnlyAccess
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - # Prevent all S3 actions except listing buckets, on everything except the Lambda bucket (AWSLambdaReadOnlyAccess already allows s3:get* and s3:list*)
+            Effect: Deny
+            NotAction: s3:ListAllMyBuckets
+            NotResource:
+            - !Join ["", [ "arn:aws:s3:::", !Ref OrganizationPrefix, "-", !Ref "AWS::Region", "-", lambda ] ]
+            - !Join ["", [ "arn:aws:s3:::", !Ref OrganizationPrefix, "-", !Ref "AWS::Region", "-", lambda, "/*" ] ]
         
 Outputs:
   LambdaBucket:
