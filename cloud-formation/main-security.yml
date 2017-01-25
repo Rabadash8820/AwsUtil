@@ -14,7 +14,7 @@ Parameters:
     Type: String
     Default: "mycompany"
     AllowedPattern: ^[\w+=,.@-]*$
-    Description: An optional prefix to append to all IAM principals (e.g., "mycompany")
+    Description: A prefix to append to all IAM principals (e.g., "mycompany")
     ConstraintDescription: "must be a string of upper and lowercase alphanumeric characters with no spaces, and any of the following characters: =,.@-.  Note that group names are not distinguished by case."
   AdminPassword:
     Type: String
@@ -29,21 +29,18 @@ Resources:
     Properties:
       GroupName: !Join ["-", [ !Ref OrganizationPrefix, admins ] ]
       Path: /admins/
-      ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/AdministratorAccess
+      ManagedPolicyArns: [ "arn:aws:iam::aws:policy/AdministratorAccess" ]
   PowerUserGroup:
     Type: AWS::IAM::Group
     Properties:
       GroupName: !Join ["-", [ !Ref OrganizationPrefix, power-users ] ]
-      ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/PowerUserAccess
+      ManagedPolicyArns: [ "arn:aws:iam::aws:policy/PowerUserAccess" ]
       Path: /power-users/
   PowerUserMinusPortalGroup:
     Type: AWS::IAM::Group
     Properties:
       GroupName: !Join ["-", [ !Ref OrganizationPrefix, power-users-minus-portal ] ]
-      ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/PowerUserAccess
+      ManagedPolicyArns:  [ "arn:aws:iam::aws:policy/PowerUserAccess" ]
       Path: /power-users-minus-portal/
   DenyPortalAccessPolicy:
     Type: AWS::IAM::ManagedPolicy
@@ -61,8 +58,7 @@ Resources:
     Type: AWS::IAM::Group
     Properties:
       GroupName: !Join ["-", [ !Ref OrganizationPrefix, read-only-users ] ]
-      ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/ReadOnlyAccess
+      ManagedPolicyArns: [ "arn:aws:iam::aws:policy/ReadOnlyAccess" ]
       Path: /read-only-users/
       
   # IAM Users and Policies

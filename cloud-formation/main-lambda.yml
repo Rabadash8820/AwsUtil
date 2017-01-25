@@ -14,7 +14,7 @@ Parameters:
     Type: String
     Default: mycompany
     AllowedPattern: ^[\w+=,.@-]*$
-    Description: An optional prefix to append to all bucket names and IAM principals (e.g., "mycompany")
+    Description: A prefix to append to all bucket names and IAM principals (e.g., "mycompany")
     ConstraintDescription: "must be a string of upper and lowercase alphanumeric characters with no spaces, and any of the following characters: =,.@-.  Note that group names are not distinguished by case."
   LogBucketName:
     Type: String
