@@ -1,23 +1,16 @@
 AWSTemplateFormatVersion: 2010-09-09
 
-Description: An AWS Certificate Manager certificate, and IAM principals for managing AWS Certificate Manager in the AWS account
+Description: An AWS Certificate Manager certificate for the provided domains in this Region
 
 Metadata:
   AWS::CloudFormation::Interface: 
     ParameterGroups:
     - Parameters:
-      - OrganizationPrefix
       - DomainName
       - SubjectAlternativeNames
       - ValidationDomainName
 
 Parameters:
-  OrganizationPrefix:
-    Type: String
-    Default: "mycompany"
-    AllowedPattern: ^[\w+=,.@-]*$
-    Description: An optional prefix to append to all IAM principals (e.g., "mycompany")
-    ConstraintDescription: "must be a string of upper and lowercase alphanumeric characters with no spaces, and any of the following characters: =,.@-.  Note that group names are not distinguished by case."
   DomainName:
     Type: String
     Default: "*.mycompany.com"
@@ -42,7 +35,7 @@ Parameters:
 
 Resources:
   # ACM Certificate for this region
-  MainCertificate:
+  Certificate:
     Type: AWS::CertificateManager::Certificate
     Properties: 
       DomainName: !Ref DomainName
@@ -51,25 +44,8 @@ Resources:
         DomainName: !Ref DomainName
         ValidationDomain: !Ref ValidationDomainName
       SubjectAlternativeNames: !Ref SubjectAlternativeNames
-
-  # IAM Groups
-  AcmAdmins:
-    Type: AWS::IAM::Group
-    Properties:
-      GroupName: !Join ["-", [ !Ref OrganizationPrefix, acm-admins ] ]
-      Path: /acm-admins/
-      ManagedPolicyArns: [ "arn:aws:iam::aws:policy/AWSCertificateManagerFullAccess" ]
-  AcmReadOnlyGroup:
-    Type: AWS::IAM::Group
-    Properties:
-      GroupName: !Join ["-", [ !Ref OrganizationPrefix, acm-read-only ] ]
-      Path: /acm-read-only/
-      ManagedPolicyArns: [ "arn:aws:iam::aws:policy/AWSCertificateManagerReadOnly" ]
         
 Outputs:
-  AcmAdminGroup:
-    Value: !Ref AcmAdmins
-    Description: Name of the new AWS Certificate Manager admin group.
-  AcmReadOnlyGroup:
-    Value: !Ref AcmReadOnlyGroup
-    Description: Name of the new AWS Certificate Manager read-only group.
+  Certificate:
+    Value: !Ref Certificate
+    Description: ARN of the new AWS Certificate Manager certificate.

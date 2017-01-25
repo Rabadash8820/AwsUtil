@@ -1,0 +1,40 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: IAM principals for accessing AWS Certificate Manager
+
+Metadata:
+  AWS::CloudFormation::Interface: 
+    ParameterGroups:
+    - Parameters:
+      - OrganizationPrefix
+
+Parameters:
+  OrganizationPrefix:
+    Type: String
+    Default: "mycompany"
+    AllowedPattern: ^[\w+=,.@-]*$
+    Description: A prefix to append to all IAM principals (e.g., "mycompany")
+    ConstraintDescription: "must be a string of upper and lowercase alphanumeric characters with no spaces, and any of the following characters: =,.@-.  Note that group names are not distinguished by case."
+
+Resources:
+  # IAM Groups
+  AcmAdmins:
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: !Join ["-", [ !Ref OrganizationPrefix, acm-admins ] ]
+      Path: /acm-admins/
+      ManagedPolicyArns: [ "arn:aws:iam::aws:policy/AWSCertificateManagerFullAccess" ]
+  AcmReadOnlyGroup:
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: !Join ["-", [ !Ref OrganizationPrefix, acm-read-only ] ]
+      Path: /acm-read-only/
+      ManagedPolicyArns: [ "arn:aws:iam::aws:policy/AWSCertificateManagerReadOnly" ]
+        
+Outputs:
+  AcmAdminGroup:
+    Value: !Ref AcmAdmins
+    Description: Name of the new AWS Certificate Manager admin group.
+  AcmReadOnlyGroup:
+    Value: !Ref AcmReadOnlyGroup
+    Description: Name of the new AWS Certificate Manager read-only group.
