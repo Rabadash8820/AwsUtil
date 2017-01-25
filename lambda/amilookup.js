@@ -52,13 +52,16 @@ exports.handler = function(event, context) {
 
 // Check if the image is a beta or rc image. The Lambda function won't return any of those images.
 function isBeta(imageName) {
-    return imageName.toLowerCase().indexOf("beta") > -1 || imageName.toLowerCase().indexOf(".rc") > -1;
+    var containsBeta = (imageName.toLowerCase().indexOf("beta") > -1);
+    var containsRC = (imageName.toLowerCase().indexOf(".rc") > -1);
+    return containsBeta || containsRC;
 }
 
 
 // Send response to the pre-signed S3 URL 
 function sendResponse(event, context, responseStatus, responseData) {
- 
+  
+    // Create the response body and log it
     var responseBody = JSON.stringify({
         Status: responseStatus,
         Reason: "See the details in CloudWatch Log Stream: " + context.logStreamName,
@@ -68,12 +71,9 @@ function sendResponse(event, context, responseStatus, responseData) {
         LogicalResourceId: event.LogicalResourceId,
         Data: responseData
     });
- 
     console.log("RESPONSE BODY:\n", responseBody);
- 
-    var https = require("https");
-    var url = require("url");
- 
+        
+    // Create the response options
     var parsedUrl = url.parse(event.ResponseURL);
     var options = {
         hostname: parsedUrl.hostname,
@@ -85,23 +85,25 @@ function sendResponse(event, context, responseStatus, responseData) {
             "content-length": responseBody.length
         }
     };
- 
-    console.log("SENDING RESPONSE...\n");
- 
-    var request = https.request(options, function(response) {
+    
+    // Success and error callbacks for the response
+    var successCallback = function(response) {
         console.log("STATUS: " + response.statusCode);
         console.log("HEADERS: " + JSON.stringify(response.headers));
-        // Tell AWS Lambda that the function execution is done  
-        context.done();
-    });
- 
-    request.on("error", function(error) {
+        context.done();   // Tell AWS Lambda that the function execution is done
+    };
+    var errCallback = function(error) {
         console.log("sendResponse Error:" + error);
-        // Tell AWS Lambda that the function execution is done  
-        context.done();
-    });
+        context.done();   // Tell AWS Lambda that the function execution is done
+    }
+ 
+    // Define an HTTPS request object with the above options and callbacks
+    var request = https.request(options);
+    request.on("success", successCallback);
+    request.on("error", errCallback);
   
-    // write data to request body
+    // Write the response body to the object
+    console.log("SENDING RESPONSE...\n");
     request.write(responseBody);
     request.end();
 }
