@@ -24,6 +24,17 @@ Parameters:
 
 Resources:
   # IAM Groups and Policicies
+  DenyPortalAccessPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties: 
+      Description: Prevents IAM principals from managing the AWS portal for this account.
+      Path: /deny-portal-access/
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Deny
+          Action: "aws-portal:*"
+          Resource: "*"
   AdminGroup:
     Type: AWS::IAM::Group
     Properties:
@@ -36,24 +47,14 @@ Resources:
       GroupName: !Join ["-", [ !Ref OrganizationPrefix, power-users ] ]
       ManagedPolicyArns: [ "arn:aws:iam::aws:policy/PowerUserAccess" ]
       Path: /power-users/
-  PowerUserMinusPortalGroup:
+  PowerUsersMinusPortalGroup:
     Type: AWS::IAM::Group
     Properties:
       GroupName: !Join ["-", [ !Ref OrganizationPrefix, power-users-minus-portal ] ]
-      ManagedPolicyArns:  [ "arn:aws:iam::aws:policy/PowerUserAccess" ]
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/PowerUserAccess
+      - !Ref DenyPortalAccessPolicy
       Path: /power-users-minus-portal/
-  DenyPortalAccessPolicy:
-    Type: AWS::IAM::ManagedPolicy
-    Properties: 
-      Description: Prevents IAM principals from managing the AWS portal for this account.
-      Path: /deny-portal-access/
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-        - Effect: Deny
-          Action: "aws-portal:*"
-          Resource: "*"
-      Groups: [ !Ref PowerUserMinusPortalGroup ]
   ReadOnlyGroup:
     Type: AWS::IAM::Group
     Properties:
@@ -71,6 +72,34 @@ Resources:
       LoginProfile:
         Password: !Ref AdminPassword
         PasswordResetRequired: false
+        
+  # IAM Roles and Policicies
+  FlowLogRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: flow-log-role
+      Path: /flow-log-role/
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement: 
+          - Effect: Allow
+            Principal: 
+              Service: vpc-flow-logs.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+      - PolicyName: FlowLogAccess
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            - logs:DescribeLogGroups
+            - logs:DescribeLogStreams
+            Resource: "*"
+  
         
 Outputs:
   AdminUser:
