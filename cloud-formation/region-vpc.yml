@@ -22,7 +22,7 @@ Resources:
     Properties:
       CidrBlock: !Ref CidrBlock
       EnableDnsSupport: true
-      EnableDnsHostnames: false
+      EnableDnsHostnames: true
       InstanceTenancy: default
   MainIGW:
     Type: AWS::EC2::InternetGateway
