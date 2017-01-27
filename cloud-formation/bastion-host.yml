@@ -240,8 +240,8 @@ Resources:
     Properties:
       HostedZoneId: !Ref HostedZone
       Name: !Ref PublicDns
-      Type: A
-      ResourceRecords: [ !GetAtt Bastion.PublicIp ]
+      Type: CNAME
+      ResourceRecords: [ !GetAtt Bastion.PublicDnsName ]
       TTL: 60
       Comment: String
       # HealthCheckId: String
