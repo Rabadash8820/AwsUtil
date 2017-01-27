@@ -389,6 +389,11 @@ Resources:
         ToPort: -1
         CidrIp: 0.0.0.0/0
       SecurityGroupEgress:
+      - # ICMP traffic to anywhere
+        IpProtocol: icmp
+        FromPort: -1
+        ToPort: -1
+        CidrIp: 0.0.0.0/0
       - # HTTP for automatic updates
         IpProtocol: tcp
         FromPort: 80
@@ -417,7 +422,7 @@ Resources:
       IpProtocol: -1
       SourceSecurityGroupId: !GetAtt BastionSG.GroupId
         
-  # SSH/RDP ingress rules
+  # SSH/RDP ingress security group rules
   SshIngressSgRule1:
     Type: AWS::EC2::SecurityGroupIngress
     Condition: IngressCidr1
@@ -509,7 +514,7 @@ Resources:
       FromPort: 3389
       ToPort: 3389
   
-  # SSH/RDP egress rules
+  # SSH/RDP egress security group rules
   SshEgressSgRule1:
     Type: AWS::EC2::SecurityGroupEgress
     Condition: EgressCidr1
