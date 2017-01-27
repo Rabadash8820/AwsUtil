@@ -27,7 +27,7 @@ CREATE TABLE `payment-methods` (
   `UserID` char(36) NOT NULL,
   `Identifier` varchar(45) NOT NULL,
   `NameOnCard` varchar(45) NOT NULL,
-  `CardNumber` varchar(45) NOT NULL,
+  `CardNumberHash` binary(32) NOT NULL COMMENT 'SHA2 hash of the card number',
   `ExpirationDate` date NOT NULL,
   PRIMARY KEY (`ID`),
   UNIQUE KEY `payment-method` (`UserID`,`Identifier`),
