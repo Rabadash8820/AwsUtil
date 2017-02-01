@@ -8,6 +8,7 @@ Metadata:
     - Parameters:
       - OrganizationPrefix
       - LogBucketName
+      - KmsAdminPassword
 
 Parameters:
   OrganizationPrefix:
@@ -22,6 +23,11 @@ Parameters:
     AllowedPattern: ^[a-z0-9.-]+$
     Description: The name of the bucket to which the Lambda-function S3 bucket will store logs.
     ConstraintDescription: must contain only lowercase letters, numbers, periods (.), and dashes (-).
+  KmsAdminPassword:
+    Type: String
+    NoEcho: true
+    Description: The password for the IAM administrator of the KMS key used to encrypt Lambda functions in S3.
+    ConstraintDescription: must conform to this AWS account's password policy, if any.
 
 Resources:
   # S3 bucket for Lambda functions
@@ -42,7 +48,7 @@ Resources:
       Path: /lambda-admins/
       ManagedPolicyArns: [ "arn:aws:iam::aws:policy/AWSLambdaFullAccess" ]
       Policies:
-      - PolicyName: LambdaBucketAccess
+      - PolicyName: LambdaS3AndKmsAccess
         PolicyDocument:
           Version: 2012-10-17
           Statement:
@@ -62,6 +68,17 @@ Resources:
             NotResource:
             - !Join ["", [ "arn:aws:s3:::", !Ref OrganizationPrefix, "-", !Ref "AWS::Region", "-", lambda ] ]
             - !Join ["", [ "arn:aws:s3:::", !Ref OrganizationPrefix, "-", !Ref "AWS::Region", "-", lambda, "/*" ] ]
+          - # Allow encryption/decryption using the Lambda KMS key
+            Effect: Allow
+            Resource: !GetAtt LambdaKmsKey.Arn
+            Action:
+            - kms:Decrypt
+            - kms:Describe*
+            - kms:Encrypt
+            - kms:Get*
+            - kms:List*
+            - kms:ReEncrypt*
+            - kms:UpdateKeyDescription
   LambdaReadOnlyGroup:
     Type: AWS::IAM::Group
     Properties:
@@ -69,7 +86,7 @@ Resources:
       Path: /lambda-read-only/
       ManagedPolicyArns: [ "arn:aws:iam::aws:policy/AWSLambdaReadOnlyAccess" ]
       Policies:
-      - PolicyName: LambdaBucketReadOnlyAccess
+      - PolicyName: LambdaS3AndKmsReadOnlyAccess
         PolicyDocument:
           Version: 2012-10-17
           Statement:
@@ -79,6 +96,51 @@ Resources:
             NotResource:
             - !Join ["", [ "arn:aws:s3:::", !Ref OrganizationPrefix, "-", !Ref "AWS::Region", "-", lambda ] ]
             - !Join ["", [ "arn:aws:s3:::", !Ref OrganizationPrefix, "-", !Ref "AWS::Region", "-", lambda, "/*" ] ]
+          - # Allow viewing and decrypting with the Lambda KMS key
+            Effect: Allow
+            Resource: !GetAtt LambdaKmsKey.Arn
+            Action:
+            - kms:Decrypt
+            - kms:Describe*
+            - kms:Get*
+            - kms:List*
+  
+  # IAM Users and Policies
+  LambdaKmsAdmin:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: !Join ["-", [ !Ref OrganizationPrefix, lambda-kms-admin ] ]
+      Path: /lambda-kms-admin/
+      LoginProfile:
+        Password: !Ref KmsAdminPassword
+        PasswordResetRequired: false
+  LambdaKmsAdminAccessInlinePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+        PolicyName: LambdaKmsAdminAccess
+        Users: [ !Ref LambdaKmsAdmin ]
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - # Allow managing the Lambda KMS key
+            Effect: Allow
+            Action: kms:*
+            Resource: !GetAtt LambdaKmsKey.Arn
+    
+  # KMS Keys
+  LambdaKmsKey:
+    Type: AWS::KMS::Key
+    Properties: 
+      Description: The default key to encrypt Lambda functions uploaded to the Lambda bucket
+      Enabled: true
+      EnableKeyRotation: true
+      KeyPolicy:    # Required by CloudFormation...
+        Version: 2012-10-17
+        Statement:
+        - # Prevent everyone but the Lambda KMS admin from managing this key
+          Effect: Deny
+          Action: kms:*
+          NotPrincipal: !Ref LambdaKmsAdmin
         
 Outputs:
   LambdaBucket:
