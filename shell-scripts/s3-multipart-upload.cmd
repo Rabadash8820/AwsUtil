@@ -103,9 +103,17 @@ IF %extended%==false (EXIT /B 0)
     ECHO                     Like with other AWS commands, you can also set the 
     ECHO                     AWS_DEFAULT_PROFILE environment variable beforehand.  Any actual
     ECHO                     value passed to --profile overrides this environment variable.
-    ECHO    -o, --options    Options to pass to the create-multipart-upload command.  Make
-    ECHO                     sure all options are enclosed in double quotes, e.g.:
-    ECHO                     `--options "--metadata key=value --storage-class STANDARD_IA"`
+    ECHO    -o, --options    Options to pass to the create-multipart-upload AWS CLI command.
+    ECHO                     Do not pass any options that are specific to upload-part or
+    ECHO                     complete-multipart-upload (e.g., --upload-id or --content-length^)
+    ECHO                     as they will cause "Unknown option" errors.  Also, make sure 
+    ECHO                     that all options are enclosed in double quotes, e.g.:
+    ECHO                     `--options "--metadata key=value --storage-class STANDARD_IA"`.
+    ECHO                     Obviously, the following options have explicit arguments, so you
+    ECHO                     should not pass them here:
+    ECHO                        --bucket
+    ECHO                        --key
+    ECHO                        --profile
     ECHO.
     ECHO    Options can also be specified with a '/' character.  E.g., '/H' to show help.
 )
@@ -290,8 +298,11 @@ EXIT /B 0
 
 SETLOCAL EnableDelayedExpansion
 
+:: Remove double quotes from the directory path
+SET partsdir=%partsdir:"=%
+
 :: Make sure the provided path exists
-IF NOT EXIST %partsdir% (
+IF NOT EXIST "%partsdir%" (
     ECHO Error: Could not find the path "%partsdir%" >> "%ERROR_FILE%"
     EXIT /B 1
 )
@@ -336,7 +347,7 @@ IF NOT %numParts%==%numFiles% (
 EXIT /B 0
 
 ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-:: int createMultipartUpload(string uploadIdFile, string bucket, string key, string options="", string profile)
+:: int createMultipartUpload(string uploadIdFile, string bucket, string key, string profile, string options="")
 ::
 :: If successful, the upload-id of the new multipart upload will be stored to the provided file
 ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -347,15 +358,18 @@ SETLOCAL EnableDelayedExpansion
 SET uploadIdFile=%1
 SET createErrFile=%tempDir%\createErr.txt
 
-:: Create the AWS S3 multipart upload (can't pass null string to --metadata argument)
-SET partsdir=%partsdir:"=%
+:: Create the AWS S3 multipart upload
 SET options=%options:"=%
 ECHO.
 ECHO Creating multipart upload with options:
 ECHO    Bucket: %bucket%
 ECHO    Key: %key%
 IF NOT "%options%"=="" ECHO    Options: %options%
-aws s3api create-multipart-upload --bucket %bucket% --key %key% %options% --profile %profile% > "%RESPONSE_FILE%" 2> "%createErrFile%"
+aws s3api create-multipart-upload ^
+    --bucket %bucket% ^
+    --key %key% ^
+    %options% ^
+    --profile %profile% > "%RESPONSE_FILE%" 2> "%createErrFile%"    &:: File redirection must occur on same line as last option
 
 :: Rethrow any error messages from the AWS API
 FOR /F %%i IN ("%createErrFile%") DO SET size=%%~zi
@@ -411,7 +425,13 @@ FOR %%F IN ("%partsdir%\*") DO (
     ECHO     Uploading part !counter!/%numFiles%: %%~nF%%~xF  ^(%%~zF bytes^)
     
     :: Attempt to upload this object part
-    aws s3api upload-part --bucket %bucket% --key %key% --part-number !counter! --body "%%F" --upload-id %uploadID% --profile %profile% 2> "%uploadErrFile%" | findstr ETag> "%RESPONSE_FILE%"
+    aws s3api upload-part ^
+        --bucket %bucket% ^
+        --key %key% ^
+        --part-number !counter! ^
+        --body "%%F" ^
+        --upload-id %uploadID% ^
+        --profile %profile% 2> "%uploadErrFile%" | findstr ETag> "%RESPONSE_FILE%"      &:: File redirection must occur on same line as last option
 
     :: If any AWS API errors occurred then log them and continue to the next object part
     SET size=0
@@ -469,10 +489,13 @@ SETLOCAL EnableDelayedExpansion
 SET completeErrFile=%tempDir%\completeErr.txt
 
 :: Create the AWS S3 multipart upload (can't pass null string to --metadata argument)
-SET partsdir=%partsdir:"=%
 ECHO.
 ECHO Completing the multipart upload to %key% in bucket %bucket%...
-aws s3api complete-multipart-upload --bucket %bucket% --key %key% --profile %profile% --multipart-upload file://"%ETAGS_JSON%" --upload-id %uploadID%> "%RESPONSE_FILE%" 2> "%completeErrFile%"
+aws s3api complete-multipart-upload ^
+    --bucket %bucket% ^
+    --key %key% ^
+    --profile %profile% ^
+    --multipart-upload file://"%ETAGS_JSON%" --upload-id %uploadID% > "%RESPONSE_FILE%" 2> "%completeErrFile%"      &:: File redirection must occur on same line as last option
 
 :: Rethrow any error messages from the AWS API
 FOR /F %%i IN ("%completeErrFile%") DO SET size=%%~zi
