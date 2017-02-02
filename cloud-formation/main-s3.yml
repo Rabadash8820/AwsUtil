@@ -1,0 +1,76 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: An S3 bucket for bucket server access logs, and IAM principals for managing S3 in the AWS account
+
+Metadata:
+  AWS::CloudFormation::Interface: 
+    ParameterGroups:
+    - Parameters:
+      - OrganizationPrefix
+      - DaysToInfrequentAccess
+      - DaysToExpire
+
+Parameters:
+  OrganizationPrefix:
+    Type: String
+    Default: "mycompany"
+    AllowedPattern: ^[\w+=,.@-]*$
+    Description: A prefix to append to all bucket names and IAM principals (e.g., "mycompany")
+    ConstraintDescription: "must be a string of upper and lowercase alphanumeric characters with no spaces, and any of the following characters: =,.@-.  Note that group names are not distinguished by case."
+  DaysToInfrequentAccess:
+    Type: Number
+    Default: 30
+    MinValue: 0
+    Description: Indicates the number of days after creation when objects are transitioned to the Infrequent Access storage class.  A value of zero will transition objects immediately.
+    ConstraintDescription: must be non-negative integer.
+  DaysToExpire:
+    Type: Number
+    Default: 60
+    MinValue: 0
+    Description: Indicates the number of days after creation when objects are deleted from Amazon S3 and Amazon Glacier.  Must be longer than the DaysToInfrequentAccess time.
+    ConstraintDescription: must be non-negative integer.
+
+Resources:
+  # S3 bucket for logs
+  LogsBucket:
+    Type: AWS::S3::Bucket
+    Properties: 
+      AccessControl: LogDeliveryWrite  # Required by CloudFormation apparently?
+      BucketName: !Join [ "-", [ !Ref OrganizationPrefix, !Ref "AWS::Region", logs ] ]
+      LifecycleConfiguration:
+        Rules:
+        -
+          Id: TransitionExpireLogs
+          Status: Enabled
+          ExpirationInDays: !Ref DaysToExpire
+          Transitions:
+          - { StorageClass: STANDARD_IA, TransitionInDays: !Ref DaysToInfrequentAccess }
+      LoggingConfiguration:
+        LogFilePrefix: log-bucket/
+          
+  # IAM Groups
+  S3Admins:
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: !Join ["-", [ !Ref OrganizationPrefix, s3-admins ] ]
+      Path: /s3-admins/
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/AmazonS3FullAccess
+  S3ReadOnlyGroup:
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: !Join ["-", [ !Ref OrganizationPrefix, s3-read-only ] ]
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+      Path: /s3-read-only/
+        
+Outputs:
+  LogsBucket:
+    Value: !Ref LogsBucket
+    Description: Name of the new S3 logs bucket.
+  S3AdminGroup:
+    Value: !Ref S3Admins
+    Description: Name of the new S3 admin group.
+  S3ReadOnlyGroup:
+    Value: !Ref S3ReadOnlyGroup
+    Description: Name of the new S3 read-only group.
