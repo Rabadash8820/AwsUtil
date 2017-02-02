@@ -101,6 +101,10 @@ Resources:
   
         
 Outputs:
+  FlowLogRole:
+    Value: !Ref FlowLogRole
+    Description: RoleName of the role that creates VPC flow logs.
+    Export: { Name: FlowLogRole }
   AdminUser:
     Value: !Ref AdminUser
     Description: UserName of the new administrative user.

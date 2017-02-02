@@ -68,6 +68,7 @@ Outputs:
   LogsBucket:
     Value: !Ref LogsBucket
     Description: Name of the new S3 logs bucket.
+    Export: { Name: LogsBucket }
   S3AdminGroup:
     Value: !Ref S3Admins
     Description: GroupName of the new S3 admin group.
