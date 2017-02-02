@@ -8,6 +8,7 @@ Metadata:
     - Parameters:
       - OrganizationPrefix
       - LogBucketName
+      - KmsAdminUserName
 
 Parameters:
   OrganizationPrefix:
@@ -42,7 +43,7 @@ Resources:
       Path: /lambda-admins/
       ManagedPolicyArns: [ "arn:aws:iam::aws:policy/AWSLambdaFullAccess" ]
       Policies:
-      - PolicyName: LambdaBucketAccess
+      - PolicyName: LambdaS3AndKmsAccess
         PolicyDocument:
           Version: 2012-10-17
           Statement:
@@ -56,12 +57,21 @@ Resources:
             Resource:
             - !Join ["", [ "arn:aws:s3:::", !Ref OrganizationPrefix, "-", !Ref "AWS::Region", "-", lambda ] ]
             - !Join ["", [ "arn:aws:s3:::", !Ref OrganizationPrefix, "-", !Ref "AWS::Region", "-", lambda, "/*" ] ]
-          - # Prevent all S3 actions except listing buckets, on everything except the Lambda bucket (AWSLambdaFullAccess already allows s3:*)
+          - # Prevent all S3 actions except listing buckets on everything except the Lambda bucket (AWSLambdaFullAccess already allows s3:*)
             Effect: Deny
             NotAction: s3:ListAllMyBuckets
             NotResource:
             - !Join ["", [ "arn:aws:s3:::", !Ref OrganizationPrefix, "-", !Ref "AWS::Region", "-", lambda ] ]
             - !Join ["", [ "arn:aws:s3:::", !Ref OrganizationPrefix, "-", !Ref "AWS::Region", "-", lambda, "/*" ] ]
+          - # Allow encryption/decryption using the Lambda KMS key
+            Effect: Allow
+            Resource: !GetAtt LambdaKmsKey.Arn
+            Action:
+            - kms:Encrypt
+            - kms:Decrypt
+            - kms:ReEncrypt*
+            - kms:GenerateDataKey*
+            - kms:DescribeKey
   LambdaReadOnlyGroup:
     Type: AWS::IAM::Group
     Properties:
@@ -69,16 +79,44 @@ Resources:
       Path: /lambda-read-only/
       ManagedPolicyArns: [ "arn:aws:iam::aws:policy/AWSLambdaReadOnlyAccess" ]
       Policies:
-      - PolicyName: LambdaBucketReadOnlyAccess
+      - PolicyName: LambdaS3AndKmsReadOnlyAccess
         PolicyDocument:
           Version: 2012-10-17
           Statement:
-          - # Prevent all S3 actions except listing buckets, on everything except the Lambda bucket (AWSLambdaReadOnlyAccess already allows s3:get* and s3:list*)
+          - # Prevent all S3 actions except listing buckets on everything except the Lambda bucket (AWSLambdaReadOnlyAccess already allows s3:get* and s3:list*)
             Effect: Deny
             NotAction: s3:ListAllMyBuckets
             NotResource:
             - !Join ["", [ "arn:aws:s3:::", !Ref OrganizationPrefix, "-", !Ref "AWS::Region", "-", lambda ] ]
             - !Join ["", [ "arn:aws:s3:::", !Ref OrganizationPrefix, "-", !Ref "AWS::Region", "-", lambda, "/*" ] ]
+          - # Allow decrypting only with the Lambda KMS key
+            Effect: Allow
+            Resource: !GetAtt LambdaKmsKey.Arn
+            Action:
+            - kms:Decrypt
+            - kms:DescribeKey
+    
+  # KMS Keys
+  LambdaKmsKey:
+    Type: AWS::KMS::Key
+    Properties: 
+      Description: The default key to encrypt Lambda functions uploaded to the Lambda bucket
+      Enabled: true
+      EnableKeyRotation: true
+      KeyPolicy:    # Required by CloudFormation...
+        Version: 2012-10-17
+        Statement:
+        - # Prevent everyone but the root user from managing this key.  All IAM users with full kms permissions will still be able to manage this key though, so whatever.
+          Effect: Allow
+          Action: kms:*
+          Principal:
+            AWS: !Join [ "", [ "arn:aws:iam::", !Ref "AWS::AccountId", ":root" ] ]
+          Resource: "*"
+  LambdaKmsAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: alias/lambda-bucket-kms-key
+      TargetKeyId: !Ref LambdaKmsKey
         
 Outputs:
   LambdaBucket:
