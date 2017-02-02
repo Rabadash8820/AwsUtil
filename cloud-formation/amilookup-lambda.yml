@@ -1,0 +1,218 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: An EC2 instance with an AMI ID that is based on the instance's type and region.
+
+Metadata:
+  AWS::CloudFormation::Interface: 
+    ParameterGroups:
+    - Parameters:
+      - InstanceType
+      - LambdaS3Bucket
+      - S3Key
+  
+Parameters:
+  InstanceType:
+    Type: String
+    Default: m1.small
+    Description: EC2 instance type
+    ConstraintDescription: Must be a valid EC2 instance type.
+    AllowedValues:
+    - t1.micro
+    - t2.micro
+    - t2.small
+    - t2.medium
+    - m1.small
+    - m1.medium
+    - m1.large
+    - m1.xlarge
+    - m2.xlarge
+    - m2.2xlarge
+    - m2.4xlarge
+    - m3.medium
+    - m3.large
+    - m3.xlarge
+    - m3.2xlarge
+    - c1.medium
+    - c1.xlarge
+    - c3.large
+    - c3.xlarge
+    - c3.2xlarge
+    - c3.4xlarge
+    - c3.8xlarge
+    - c4.large
+    - c4.xlarge
+    - c4.2xlarge
+    - c4.4xlarge
+    - c4.8xlarge
+    - g2.2xlarge
+    - r3.large
+    - r3.xlarge
+    - r3.2xlarge
+    - r3.4xlarge
+    - r3.8xlarge
+    - i2.xlarge
+    - i2.2xlarge
+    - i2.4xlarge
+    - i2.8xlarge
+    - d2.xlarge
+    - d2.2xlarge
+    - d2.4xlarge
+    - d2.8xlarge
+    - hi1.4xlarge
+    - hs1.8xlarge
+    - cr1.8xlarge
+    - cc2.8xlarge
+    - cg1.4xlarge
+  LambdaS3Bucket:
+    Type: String
+    Default: mycompany-lambda
+    MinLength: 3
+    MaxLength: 63
+    AllowedPattern: ^[0-9A-Za-z\.\-_]*(?<!\.)$
+    Description: Name of the S3 bucket where the deployment package is stored. This bucket must reside in the same AWS region where you are creating the Lambda function.
+    ConstraintDescription: must contain only alphanumeric characters and/or one or more of the symbols .-_?<!
+  S3Key:
+    Type: String
+    Default: amilookup.zip
+    MinLength: 1
+    MaxLength: 1024
+    ConstraintDescription: must be a valid S3 key of length 1-1024.
+    Description: The name (S3 key) of the deployment package for this function, inside the Lambda S3 bucket.
+  
+Mappings:
+  AWSInstanceType2Arch:
+    t1.micro:
+      Arch: PV64
+    t2.micro:
+      Arch: HVM64
+    t2.small:
+      Arch: HVM64
+    t2.medium:
+      Arch: HVM64
+    m1.small:
+      Arch: PV64
+    m1.medium:
+      Arch: PV64
+    m1.large:
+      Arch: PV64
+    m1.xlarge:
+      Arch: PV64
+    m2.xlarge:
+      Arch: PV64
+    m2.2xlarge:
+      Arch: PV64
+    m2.4xlarge:
+      Arch: PV64
+    m3.medium:
+      Arch: HVM64
+    m3.large:
+      Arch: HVM64
+    m3.xlarge:
+      Arch: HVM64
+    m3.2xlarge:
+      Arch: HVM64
+    c1.medium:
+      Arch: PV64
+    c1.xlarge:
+      Arch: PV64
+    c3.large:
+      Arch: HVM64
+    c3.xlarge:
+      Arch: HVM64
+    c3.2xlarge:
+      Arch: HVM64
+    c3.4xlarge:
+      Arch: HVM64
+    c3.8xlarge:
+      Arch: HVM64
+    c4.large:
+      Arch: HVM64
+    c4.xlarge:
+      Arch: HVM64
+    c4.2xlarge:
+      Arch: HVM64
+    c4.4xlarge:
+      Arch: HVM64
+    c4.8xlarge:
+      Arch: HVM64
+    g2.2xlarge:
+      Arch: HVMG2
+    r3.large:
+      Arch: HVM64
+    r3.xlarge:
+      Arch: HVM64
+    r3.2xlarge:
+      Arch: HVM64
+    r3.4xlarge:
+      Arch: HVM64
+    r3.8xlarge:
+      Arch: HVM64
+    i2.xlarge:
+      Arch: HVM64
+    i2.2xlarge:
+      Arch: HVM64
+    i2.4xlarge:
+      Arch: HVM64
+    i2.8xlarge:
+      Arch: HVM64
+    d2.xlarge:
+      Arch: HVM64
+    d2.2xlarge:
+      Arch: HVM64
+    d2.4xlarge:
+      Arch: HVM64
+    d2.8xlarge:
+      Arch: HVM64
+    hi1.4xlarge:
+      Arch: HVM64
+    hs1.8xlarge:
+      Arch: HVM64
+    cr1.8xlarge:
+      Arch: HVM64
+    cc2.8xlarge:
+      Arch: HVM64
+      
+Resources:
+  AMILookupFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: AMILookup
+      Code:
+        S3Bucket: !Ref LambdaS3Bucket
+        S3Key: !Ref S3Key
+      Handler: amilookup.handler
+      Description: This Lambda function returns the id of the latest AMI matching the provided search parameters
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Runtime: nodejs4.3
+      Timeout: 30
+      MemorySize: 128   # MB, must be a multiple of 64 <= 1536, default is 128
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal: { Service: lambda.amazonaws.com }
+          Action: sts:AssumeRole
+      Path: /amilookup-lambda-role/
+      Policies:
+      - PolicyName: amilookup-lambda-role
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - # Allow sending logs
+            Effect: Allow
+            Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource: arn:aws:logs:*:*:*
+          - # Allow describing EC2 images, so we can find the latest AMI image IDs!
+            Effect: Allow
+            Action: ec2:DescribeImages
+            Resource: "*"
+Outputs:
+  AMILookupFunction:
+    Value: !Ref AMILookupFunction
+    Description: FunctionName of the new AMI Lookup Lambda function.
