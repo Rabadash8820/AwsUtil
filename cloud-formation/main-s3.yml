@@ -70,7 +70,7 @@ Outputs:
     Description: Name of the new S3 logs bucket.
   S3AdminGroup:
     Value: !Ref S3Admins
-    Description: Name of the new S3 admin group.
+    Description: GroupName of the new S3 admin group.
   S3ReadOnlyGroup:
     Value: !Ref S3ReadOnlyGroup
-    Description: Name of the new S3 read-only group.
+    Description: GroupName of the new S3 read-only group.

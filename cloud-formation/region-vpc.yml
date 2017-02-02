@@ -74,11 +74,9 @@ Resources:
 Outputs:
   MainVPC:
     Value: !Ref MainVPC
-    Description: The ID of the new Virtual Private Cloud
-    Export:
-      Name: MainVPC
+    Description: ID of the new Virtual Private Cloud
+    Export: { Name: MainVPC }
   PublicRouteTable:
     Value: !Ref PubRT
-    Description: The ID of the new Internet Gateway
-    Export:
-      Name: PublicRouteTable
+    Description: ID of the new Internet Gateway
+    Export: { Name: PublicRouteTable }

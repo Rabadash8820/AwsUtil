@@ -609,11 +609,9 @@ Resources:
 Outputs:
   BastionNetworkACL:
     Value: !Ref PubACL
-    Export:
-      Name: BastionNetworkACL
+    Export: { Name: BastionNetworkACL }
     Description: ID of the bastion host network ACL
   BastionSecurityGroup:
     Value: !Ref BastionSG
-    Export:
-      Name: BastionSecurityGroup
+    Export: { Name: BastionSecurityGroup }
     Description: ID of the bastion host security group
