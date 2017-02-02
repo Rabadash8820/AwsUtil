@@ -112,6 +112,11 @@ Resources:
           Principal:
             AWS: !Join [ "", [ "arn:aws:iam::", !Ref "AWS::AccountId", ":root" ] ]
           Resource: "*"
+  LambdaKmsAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: alias/lambda-bucket-kms-key
+      TargetKeyId: !Ref LambdaKmsKey
         
 Outputs:
   LambdaBucket:
