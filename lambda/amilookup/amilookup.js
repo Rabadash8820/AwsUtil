@@ -1,6 +1,11 @@
 /**
-* A sample Lambda function that looks up the latest AMI ID for a given region and architecture.
+* A Lambda function that looks up the latest AMI ID for a given region and architecture.
 **/
+
+// Require modules
+var aws = require("aws-sdk");
+var https = require("https");
+var url = require("url");
 
 // Map instance architectures to an AMI name pattern
 var archToAMINamePattern = {
@@ -8,102 +13,109 @@ var archToAMINamePattern = {
     "HVM64": "amzn-ami-hvm*x86_64-gp2",
     "HVMG2": "amzn-ami-graphics-hvm*x86_64-ebs*"
 };
-var aws = require("aws-sdk");
  
 exports.handler = function(event, context) {
  
     console.log("REQUEST RECEIVED:\n" + JSON.stringify(event));
-    
-    // For Delete requests, immediately send a SUCCESS response.
-    if (event.RequestType == "Delete") {
-        sendResponse(event, context, "SUCCESS");
-        return;
-    }
- 
-    var responseStatus = "FAILED";
-    var responseData = {};
- 
-    var ec2 = new aws.EC2({region: event.ResourceProperties.Region});
-    var describeImagesParams = {
-        Filters: [{ Name: "name", Values: [archToAMINamePattern[event.ResourceProperties.Architecture]]}],
-        Owners: [event.ResourceProperties.Architecture == "HVMG2" ? "679593333241" : "amazon"]
-    };
- 
-    // Get AMI IDs with the specified name pattern and owner
-    ec2.describeImages(describeImagesParams, function(err, describeImagesResult) {
-        if (err) {
-            responseData = {Error: "DescribeImages call failed"};
-            console.log(responseData.Error + ":\n", err);
-        }
-        else {
-            var images = describeImagesResult.Images;
-            // Sort images by name in decscending order. The names contain the AMI version, formatted as YYYY.MM.Ver.
-            images.sort(function(x, y) { return y.Name.localeCompare(x.Name); });
-            for (var j = 0; j < images.length; j++) {
-                if (isBeta(images[j].Name)) continue;
-                responseStatus = "SUCCESS";
-                responseData["Id"] = images[j].ImageId;
-                break;
-            }
-        }
-        sendResponse(event, context, responseStatus, responseData);
-    });
-};
-
-// Check if the image is a beta or rc image. The Lambda function won't return any of those images.
-function isBeta(imageName) {
-    var containsBeta = (imageName.toLowerCase().indexOf("beta") > -1);
-    var containsRC = (imageName.toLowerCase().indexOf(".rc") > -1);
-    return containsBeta || containsRC;
-}
-
-
-// Send response to the pre-signed S3 URL 
-function sendResponse(event, context, responseStatus, responseData) {
-  
-    // Create the response body and log it
+        
+    // Create the default response body
+    var parsedUrl = url.parse(event.ResponseURL);
     var responseBody = JSON.stringify({
-        Status: responseStatus,
+        Status: "",
         Reason: "See the details in CloudWatch Log Stream: " + context.logStreamName,
         PhysicalResourceId: context.logStreamName,
         StackId: event.StackId,
         RequestId: event.RequestId,
         LogicalResourceId: event.LogicalResourceId,
-        Data: responseData
+        Data: {}
     });
+    
+    // For Delete requests, immediately send a SUCCESS response.
+    if (event.RequestType == "Delete") {
+        responseBody.Status = "SUCCESS";
+        sendResponse(event, context, responseBody);
+        context.done();
+        return;
+    } 
+ 
+    // Get AMI IDs with the specified name pattern and owner
+    var props = event.ResourceProperties;
+    var archName = archToAMINamePattern[props.Architecture];
+    var owner = (props.Architecture === "HVMG2") ? "679593333241" : "amazon";
+    var ec2 = new aws.EC2({region: event.ResourceProperties.Region});
+    ec2.describeImages({
+        Filters: [ { Name: "name", Values: [ archName ] } ],
+        Owners: [ owner ]
+    })
+    
+    // If any errors occurred then log them and respond with a FAILED status
+    .on("error", function(error) {
+        responseBody.Status = "FAILED";
+        responseBody.Data = { Error: "DescribeImages call failed" };
+        console.log(responseData.Error + ":\n", err);
+        sendResponse(parsedUrl, responseBody);
+        context.done();
+    })
+    
+    // Otherwise, get the latest stable AMI of those returned
+    // Respond with a SUCCESS/FAILED status according to whether one was found
+    .on("success", function(describeImagesResult) {
+        var latest = latestImage(describeImagesResult.Images);
+        responseBody.Status = (latest === null) ? "FAILED" : "SUCCESS";
+        if (latest !== null)
+            responseBody.Data = { Id: latest.ImageId };
+        sendResponse(parsedUrl, responseBody);
+        context.done();        
+    });
+};
+
+// Send response to the pre-signed S3 URL 
+function sendResponse(url, responseBody) {
+    // Log the response body
     console.log("RESPONSE BODY:\n", responseBody);
-        
-    // Create the response options
-    var parsedUrl = url.parse(event.ResponseURL);
-    var options = {
-        hostname: parsedUrl.hostname,
+ 
+    // Define an HTTPS request object for the response
+    console.log("SENDING RESPONSE...\n");
+    https.request({
+        hostname: url.hostname,
         port: 443,
-        path: parsedUrl.path,
+        path: url.path,
         method: "PUT",
         headers: {
             "content-type": "",
             "content-length": responseBody.length
         }
-    };
+    })
     
-    // Success and error callbacks for the response
-    var successCallback = function(response) {
+    // If any errors occur then log them and early exit
+    .on("error", function(error) {
+        console.log("sendResponse Error:" + error);
+    })
+    
+    // Otherwise, log the response's status and headers
+    .on("success", function(response) {
         console.log("STATUS: " + response.statusCode);
         console.log("HEADERS: " + JSON.stringify(response.headers));
-        context.done();   // Tell AWS Lambda that the function execution is done
-    };
-    var errCallback = function(error) {
-        console.log("sendResponse Error:" + error);
-        context.done();   // Tell AWS Lambda that the function execution is done
-    }
- 
-    // Define an HTTPS request object with the above options and callbacks
-    var request = https.request(options);
-    request.on("success", successCallback);
-    request.on("error", errCallback);
+    })
   
     // Write the response body to the object
-    console.log("SENDING RESPONSE...\n");
-    request.write(responseBody);
-    request.end();
+    .write(responseBody)
+    .end();
+}
+
+function latestImage(images) {
+    var latest = null;
+    
+    // Try to find the latest stable AMI image in the provided list
+    // Image names are formatted as YYYY.MM.Ver.
+    images.sort(function(x, y) { return y.Name.localeCompare(x.Name); });
+    for (var j=0; j < images.length; j++) {
+        var lower = images[j].Name.toLowerCase();
+        var beta = (lower.indexOf("beta") > -1);
+        var rc = (lower.indexOf(".rc") > -1);
+        if (!beta && !rc)
+            latest = images[j];
+    }
+    
+    return latest;
 }
