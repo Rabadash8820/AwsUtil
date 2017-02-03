@@ -7,11 +7,65 @@ var aws = require("aws-sdk");
 var https = require("https");
 var url = require("url");
 
-// Map instance architectures to an AMI name pattern
+// Maps from instance types to architectures for various types of AMIs
+var instanceTypeToArch {
+    "c1.medium":   "PV64",
+    "c1.xlarge":   "PV64",
+    "c3.2xlarge":  "HVM64",
+    "c3.4xlarge":  "HVM64",
+    "c3.8xlarge":  "HVM64",
+    "c3.large":    "HVM64",
+    "c3.xlarge":   "HVM64",
+    "c4.2xlarge":  "HVM64",
+    "c4.4xlarge":  "HVM64",
+    "c4.8xlarge":  "HVM64",
+    "c4.large":    "HVM64",
+    "c4.xlarge":   "HVM64",
+    "cc2.8xlarge": "HVM64",
+    "cr1.8xlarge": "HVM64",
+    "d2.2xlarge":  "HVM64",
+    "d2.4xlarge":  "HVM64",
+    "d2.8xlarge":  "HVM64",
+    "d2.xlarge":   "HVM64",
+    "g2.2xlarge":  "HVMG2",
+    "hi1.4xlarge": "HVM64",
+    "hs1.8xlarge": "HVM64",
+    "i2.2xlarge":  "HVM64",
+    "i2.4xlarge":  "HVM64",
+    "i2.8xlarge":  "HVM64",
+    "i2.xlarge":   "HVM64",
+    "m1.large":    "PV64",
+    "m1.medium":   "PV64",
+    "m1.small":    "PV64",
+    "m1.xlarge":   "PV64",
+    "m2.2xlarge":  "PV64",
+    "m2.4xlarge":  "PV64",
+    "m2.xlarge":   "PV64",
+    "m3.2xlarge":  "HVM64",
+    "m3.large":    "HVM64",
+    "m3.medium":   "HVM64",
+    "m3.xlarge":   "HVM64",
+    "r3.2xlarge":  "HVM64",
+    "r3.4xlarge":  "HVM64",
+    "r3.8xlarge":  "HVM64",
+    "r3.large":    "HVM64",
+    "r3.xlarge":   "HVM64",
+    "t1.micro":    "PV64",
+    "t2.medium":   "HVM64",
+    "t2.micro":    "HVM64",
+    "t2.small":    "HVM64"
+};
 var archToAMINamePattern = {
-    "PV64": "amzn-ami-pv*x86_64-ebs",
-    "HVM64": "amzn-ami-hvm*x86_64-gp2",
-    "HVMG2": "amzn-ami-graphics-hvm*x86_64-ebs*"
+    "amazon-linux": {
+        "PV64":  "amzn-ami-pv*x86_64-ebs",
+        "HVM64": "amzn-ami-hvm*x86_64-gp2",
+        "HVMG2": "amzn-ami-graphics-hvm*x86_64-ebs*"
+    },
+    "cis": {
+        "PV64":  "?-pv*x86_64-?",
+        "HVM64": "?-hvm*x86_64-?",
+        "HVMG2": "?-hvm*x86_64-?"
+    }
 };
  
 exports.handler = function(event, context) {
@@ -40,9 +94,8 @@ exports.handler = function(event, context) {
  
     // Get AMI IDs with the specified name pattern and owner
     var props = event.ResourceProperties;
-    var archName = archToAMINamePattern[props.Architecture];
-    var owner = (props.Architecture === "HVMG2") ? "679593333241" : "amazon";
-    var ec2 = new aws.EC2({region: event.ResourceProperties.Region});
+    var filterOptions = getInstanceFilters(props);
+    var ec2 = new aws.EC2({region: props.Region});
     ec2.describeImages({
         Filters: [ { Name: "name", Values: [ archName ] } ],
         Owners: [ owner ]
@@ -101,6 +154,19 @@ function sendResponse(url, responseBody) {
     // Write the response body to the object
     .write(responseBody)
     .end();
+}
+
+function getInstanceFilters(properties) {
+    // Return the filter options to pass to ec2.describeImages() based on the given parameters
+    var lookupType = properties.AmiLookupType;
+    var arch = instanceTypeToArch[properties.InstanceType];
+    var nameFilter = archToAMINamePattern[lookupType][arch];
+    var owner = (arch === "HVMG2") ? "679593333241" : "amazon";
+    var options = {
+        Filters: [ { Name: "name", Values: [ nameFilter ] } ],
+        Owners: [ owner ]
+    };
+    return options;
 }
 
 function latestImage(images) {
