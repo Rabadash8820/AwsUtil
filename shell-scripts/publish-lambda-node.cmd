@@ -13,6 +13,7 @@ TYPE NUL > "%ERROR_FILE%"
 TYPE NUL > "%RESPONSE_FILE%"
 
 :: Initialize global variables
+SET function=""
 SET help=false
 SET options=""
 
@@ -42,6 +43,12 @@ CALL :validatePackage & IF ERRORLEVEL 1 GOTO Catch
 :: If everything looks good, then upload the Lambda package to S3
 CALL :uploadPackage & IF ERRORLEVEL 1 GOTO Catch
 
+:: If the name of a Lambda function was provided then also update that function's code
+SET function=%function:"=%
+IF NOT "%function%"=="" (
+    CALL :updateFunctionCode & IF ERRORLEVEL 1 GOTO Catch
+)
+
 GOTO Finally
 
 :Catch
@@ -66,14 +73,20 @@ SET filename=%1
 SET extended=%2
 
 :: Return basic usage
-ECHO Usage: publish-lambda-node --body ^<bodypath^> --key ^<key^> [options] >> "%filename%"
+ECHO Usage: publish-lambda-node [options] >> "%filename%"
 IF %extended%==false (EXIT /B 0)
 
 :: If the extended description was requested, then return this text
 >> "%filename%" (
     ECHO.
-    ECHO    -b, --body       Required.  Path to the Node.js Lambda package you are uploading.
+    ECHO    --body           Required.  Path to the Node.js Lambda package you are uploading.
     ECHO                     The package body must be a .zip file.
+    ECHO    --bucket         Required.  Name of the AWS S3 bucket to which you are uploading.
+    ECHO                     By default, a key named "lambda-bucket-kms-key" will be used for
+    ECHO                     server-side-encryption of the uploaded package.  You can change
+    ECHO                     this behavior with the --options argument below.
+    ECHO    -f, --function   Optional.  The name of a Lambda function to update with the new
+    ECHO                     code.  This function must already be created.
     ECHO    -h, --help       Show this help text.
     ECHO    -k, --key        Required.  A unique key (name^) to identify the uploaded object
     ECHO                     in the bucket (e.g., "my-function.zip"^).
@@ -88,11 +101,11 @@ IF %extended%==false (EXIT /B 0)
     ECHO                     Obviously, the following options have explicit arguments, so you
     ECHO                     should not pass them here:
     ECHO                        --body
+    ECHO                        --bucket
     ECHO                        --key
     ECHO                        --profile
     ECHO                     And check with a supervisor before passing non-default values
     ECHO                     for these options:
-    ECHO                        --bucket
     ECHO                        --acl
     ECHO                        --storage-class
     ECHO                        --server-side-encryption
@@ -128,7 +141,7 @@ SET arg=%1
 FOR /F "usebackq tokens=*" %%a IN ('%arg%') DO SET arg=%%~a
 IF "%arg%"=="" GOTO continueParse
 SET isBody=false
-SET values=-b /b /B --body
+SET values=--body
 FOR %%v IN (%values%) DO IF %arg%==%%v SET isBody=true
 IF %isBody%==true (
     SET arg=%2
@@ -138,6 +151,44 @@ IF %isBody%==true (
     IF "!arg:~0,1!"=="/" (SET good=false)
     IF !good!==true (SHIFT) ELSE (ECHO Error: --body requires an argument >> "%ERROR_FILE%" & EXIT /B 1)
     SET bodyPath=!arg!
+    SHIFT
+    GOTO loop
+)
+
+:: Parse bucket name
+SET arg=%1
+FOR /F "usebackq tokens=*" %%a IN ('%arg%') DO SET arg=%%~a
+IF "%arg%"=="" GOTO continueParse
+SET isBucket=false
+SET values=--bucket
+FOR %%v IN (%values%) DO IF %arg%==%%v SET isBucket=true
+IF %isBucket%==true (
+    SET arg=%2
+    SET good=true
+    IF "!arg!"=="" SET good=false
+    IF "!arg:~0,1!"=="-" (SET good=false)
+    IF "!arg:~0,1!"=="/" (SET good=false)
+    IF !good!==true (SHIFT) ELSE (ECHO Error: --bucket requires an argument >> "%ERROR_FILE%" & EXIT /B 1)
+    SET bucket=!arg!
+    SHIFT
+    GOTO loop
+)
+
+:: Parse Lambda function name
+SET arg=%1
+FOR /F "usebackq tokens=*" %%a IN ('%arg%') DO SET arg=%%~a
+IF "%arg%"=="" GOTO continueParse
+SET isFunc=false
+SET values=-f /f /F --function
+FOR %%v IN (%values%) DO IF %arg%==%%v SET isFunc=true
+IF %isFunc%==true (
+    SET arg=%2
+    SET good=true
+    IF "!arg!"=="" SET good=false
+    IF "!arg:~0,1!"=="-" (SET good=false)
+    IF "!arg:~0,1!"=="/" (SET good=false)
+    IF !good!==true (SHIFT) ELSE (ECHO Error: --function requires an argument >> "%ERROR_FILE%" & EXIT /B 1)
+    SET function=!arg!
     SHIFT
     GOTO loop
 )
@@ -222,12 +273,13 @@ GOTO loop
 
 :continueParse
 
-:: If help was requested, then just exit
+:: If help was requested, then just early exit
 IF %help%==true (EXIT /B 0)
 
 :: Ensure required arguments were provided
 SET valid=true
 IF NOT DEFINED bodyPath (SET valid=false & ECHO Error: You must provide a path to the object's body (--body^)! >> "%ERROR_FILE%")
+IF NOT DEFINED bucket (SET valid=false & ECHO Error: You must provide a bucket name (--bucket^)! >> "%ERROR_FILE%")
 IF NOT DEFINED key (SET valid=false & ECHO Error: You must provide an object key (--key^)! >> "%ERROR_FILE%")
 
 :: Try to set the missing AWS credentials profile with an environment variable
@@ -249,6 +301,7 @@ SET valid=
 SET result=
 
 SET isBody=
+SET isFunc=
 SET isHelp=
 SET isKey=
 SET isOptions=
@@ -308,7 +361,7 @@ ECHO Uploading Lambda package to S3 with options:
 ECHO    Key: %key%
 IF NOT "%options%"=="" ECHO    Options: %options%
 aws s3api put-object ^
-    --bucket danware-us-east-2-lambda ^
+    --bucket %bucket% ^
     --key %key% ^
     --body "%bodyPath%" ^
     --acl private ^
@@ -336,5 +389,39 @@ REM Otherwise, log the ETag for the newly uploaded object
     ECHO Upload succeeded with !etag:"=!
 )
 DEL "%uploadErrFile%"
+
+EXIT /B 0
+
+
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+:: int updateFunctionCode(string function, string key, string profile)
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+:updateFunctionCode
+
+SETLOCAL EnableDelayedExpansion
+
+SET updateErrFile=%tempDir%\uploadErr.txt
+
+:: Update the provided Lambda function's code
+ECHO.
+ECHO Updating Lambda function "%function%"...
+aws lambda update-function-code ^
+    --function-name %function% ^
+    --s3-bucket %bucket% ^
+    --s3-key %key% ^
+    --no-publish ^
+    --profile %profile% > "%RESPONSE_FILE%" 2> "%updateErrFile%"      &:: File redirection must occur on same line as last option
+
+:: If any AWS API errors occurred then just log them and early exit
+FOR /F %%i IN ("%updateErrFile%") DO SET size=%%~zi
+IF %size% GTR 0 (
+    ECHO Code update failed with error message: >> "%ERROR_FILE%"
+    TYPE "%updateErrFile%" >> "%ERROR_FILE%"
+    DEL "%updateErrFile%"
+    EXIT /B 1
+) ELSE (
+    ECHO Code update succeeded^^!
+)
+DEL "%updateErrFile%"
 
 EXIT /B 0
