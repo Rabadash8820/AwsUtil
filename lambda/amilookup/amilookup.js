@@ -8,7 +8,7 @@ var https = require("https");
 var url = require("url");
 
 // Maps from instance types to architectures for various types of AMIs
-var instanceTypeToArch {
+var instanceTypeToArch = {
     "c1.medium":   "PV64",
     "c1.xlarge":   "PV64",
     "c3.2xlarge":  "HVM64",
@@ -56,15 +56,15 @@ var instanceTypeToArch {
     "t2.small":    "HVM64"
 };
 var archToAMINamePattern = {
-    "amazon-linux": {
+    "amzn-linux": {
         "PV64":  "amzn-ami-pv*x86_64-ebs",
         "HVM64": "amzn-ami-hvm*x86_64-gp2",
         "HVMG2": "amzn-ami-graphics-hvm*x86_64-ebs*"
     },
-    "cis": {
-        "PV64":  "?-pv*x86_64-?",
-        "HVM64": "?-hvm*x86_64-?",
-        "HVMG2": "?-hvm*x86_64-?"
+    "hardened-amzn-linux": {
+        "PV64":  "CIS Amazon Linux*",
+        "HVM64": "CIS Amazon Linux*",
+        "HVMG2": "CIS Amazon Linux*"
     }
 };
  
@@ -158,14 +158,21 @@ function sendResponse(url, responseBody) {
 
 function getInstanceFilters(properties) {
     // Return the filter options to pass to ec2.describeImages() based on the given parameters
+    console.log("PROPERTIES (HI DAN):\n" + JSON.stringify(properties));
     var lookupType = properties.AmiLookupType;
     var arch = instanceTypeToArch[properties.InstanceType];
     var nameFilter = archToAMINamePattern[lookupType][arch];
     var owner = (arch === "HVMG2") ? "679593333241" : "amazon";
     var options = {
-        Filters: [ { Name: "name", Values: [ nameFilter ] } ],
+        Filters: [
+            { Name:"name",         Values: [ nameFilter ] },
+            { Name:"state",        Values: [ "available" ] },
+            { Name:"image-type",   Values: [ "machine" ] },
+            { Name:"architecture", Values: [ "x86_64" ] }
+        ],
         Owners: [ owner ]
     };
+    
     return options;
 }
 
