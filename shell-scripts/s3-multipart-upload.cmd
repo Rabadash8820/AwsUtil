@@ -431,7 +431,7 @@ FOR %%F IN ("%partsdir%\*") DO (
         --part-number !counter! ^
         --body "%%F" ^
         --upload-id %uploadID% ^
-        --profile %profile% 2> "%uploadErrFile%" | findstr ETag> "%RESPONSE_FILE%"      &:: File redirection must occur on same line as last option
+        --profile %profile% 2> "%uploadErrFile%" | findstr ETag> "%RESPONSE_FILE%"      &REM File redirection must occur on same line as last option
 
     :: If any AWS API errors occurred then log them and continue to the next object part
     SET size=0
