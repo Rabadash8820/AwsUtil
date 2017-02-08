@@ -5,6 +5,7 @@ SETLOCAL EnableDelayedExpansion
 
 :: Global paths
 SET tempDir=%TEMP%\publish-lambda-node
+SET PACKAGE_FILE=%tempDir%\package.zip
 SET ERROR_FILE=%tempDir%\error.txt
 SET RESPONSE_FILE=%tempDir%\response.txt
 
@@ -38,16 +39,13 @@ IF %help%==true (
 
 :: Validate the provided path for the Lambda package
 :: If there were any errors then display messages and exit
-CALL :validatePackage & IF ERRORLEVEL 1 GOTO Catch
+CALL :validatePackageDir & IF ERRORLEVEL 1 GOTO Catch
 
-:: If everything looks good, then upload the Lambda package to S3
+:: Create the Lambda package and upload it to S3
+:: If a function name was provided then update its code with the new package
+CALL :compressPackage & IF ERRORLEVEL 1 GOTO Catch
 CALL :uploadPackage & IF ERRORLEVEL 1 GOTO Catch
-
-:: If the name of a Lambda function was provided then also update that function's code
-SET function=%function:"=%
-IF NOT "%function%"=="" (
-    CALL :updateFunctionCode & IF ERRORLEVEL 1 GOTO Catch
-)
+CALL :updateFunctionCode & IF ERRORLEVEL 1 GOTO Catch
 
 GOTO Finally
 
@@ -73,14 +71,16 @@ SET filename=%1
 SET extended=%2
 
 :: Return basic usage
-ECHO Usage: publish-lambda-node [options] >> "%filename%"
+ECHO Usage: publish-lambda-node [options] ^<packageDir^> >> "%filename%"
 IF %extended%==false (EXIT /B 0)
 
 :: If the extended description was requested, then return this text
 >> "%filename%" (
     ECHO.
-    ECHO    --body           Required.  Path to the Node.js Lambda package you are uploading.
-    ECHO                     The package body must be a .zip file.
+    ECHO    packageDir       Required.  Path to the directory containing the Node.js files of
+    ECHO                     the Lambda package you are uploading.  The files in this folder
+    ECHO                     will be automatically compressed into a package using 7-Zip.
+    ECHO.
     ECHO    --bucket         Required.  Name of the AWS S3 bucket to which you are uploading.
     ECHO                     By default, a key named "lambda-bucket-kms-key" will be used for
     ECHO                     server-side-encryption of the uploaded package.  You can change
@@ -136,23 +136,19 @@ SET arg=%1
 FOR /F "usebackq tokens=*" %%a IN ('%arg%') DO (SET arg=%%~a)   &:: Remove double quotes
 IF "%arg%"=="" GOTO continueParse
 
-:: Parse body path
-SET arg=%1
-FOR /F "usebackq tokens=*" %%a IN ('%arg%') DO SET arg=%%~a
-IF "%arg%"=="" GOTO continueParse
-SET isBody=false
-SET values=--body
-FOR %%v IN (%values%) DO IF %arg%==%%v SET isBody=true
-IF %isBody%==true (
-    SET arg=%2
-    SET good=true
-    IF "!arg!"=="" SET good=false
-    IF "!arg:~0,1!"=="-" (SET good=false)
-    IF "!arg:~0,1!"=="/" (SET good=false)
-    IF !good!==true (SHIFT) ELSE (ECHO Error: --body requires an argument >> "%ERROR_FILE%" & EXIT /B 1)
-    SET bodyPath=!arg!
-    SHIFT
-    GOTO loop
+:: Parse part directory path
+SET good=true
+IF "%arg:~0,1%"=="-" (SET good=false)
+IF "%arg:~0,1%"=="/" (SET good=false)
+IF %good%==true (
+    IF DEFINED packageDir (
+        ECHO Error: You may provide the path to only one directory with package files to upload! >> "%ERROR_FILE%"
+        EXIT /B 1
+    ) ELSE (
+        SET packageDir=%arg%
+        SHIFT
+        GOTO loop
+    )
 )
 
 :: Parse bucket name
@@ -160,7 +156,7 @@ SET arg=%1
 FOR /F "usebackq tokens=*" %%a IN ('%arg%') DO SET arg=%%~a
 IF "%arg%"=="" GOTO continueParse
 SET isBucket=false
-SET values=--bucket
+SET values=-b /b /B --bucket
 FOR %%v IN (%values%) DO IF %arg%==%%v SET isBucket=true
 IF %isBucket%==true (
     SET arg=%2
@@ -278,9 +274,9 @@ IF %help%==true (EXIT /B 0)
 
 :: Ensure required arguments were provided
 SET valid=true
-IF NOT DEFINED bodyPath (SET valid=false & ECHO Error: You must provide a path to the object's body (--body^)! >> "%ERROR_FILE%")
-IF NOT DEFINED bucket (SET valid=false & ECHO Error: You must provide a bucket name (--bucket^)! >> "%ERROR_FILE%")
-IF NOT DEFINED key (SET valid=false & ECHO Error: You must provide an object key (--key^)! >> "%ERROR_FILE%")
+IF NOT DEFINED packageDir (SET valid=false & ECHO Error: You must provide a path to a directory containing package files >> "%ERROR_FILE%")
+IF NOT DEFINED bucket (SET valid=false & ECHO Error: You must provide a bucket name (--bucket^) >> "%ERROR_FILE%")
+IF NOT DEFINED key (SET valid=false & ECHO Error: You must provide an object key (--key^) >> "%ERROR_FILE%")
 
 :: Try to set the missing AWS credentials profile with an environment variable
 IF NOT DEFINED profile (
@@ -288,7 +284,7 @@ IF NOT DEFINED profile (
         SET profile=%AWS_DEFAULT_PROFILE%
     ) ELSE (
         SET valid=false
-        ECHO Error: You must provide an AWS CLI credentials profile (--profile^)! >> "%ERROR_FILE%"
+        ECHO Error: You must provide an AWS CLI credentials profile (--profile^) >> "%ERROR_FILE%"
     )
 )
 
@@ -311,34 +307,34 @@ EXIT /B 0
 
 
 ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-:: int validatePackage(string bodyPath)
+:: int validatePackageDir(string packageDir)
 ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-:validatePackage
+:validatePackageDir
 
 SETLOCAL EnableDelayedExpansion
 
 :: Remove double quotes from the body path
-SET bodyPath=%bodyPath:"=%
+SET packageDir=%packageDir:"=%
 
 :: Make sure the provided path exists
-IF NOT EXIST "%bodyPath%" (
-    ECHO Error: Could not find the package "%bodyPath%" >> "%ERROR_FILE%"
+IF NOT EXIST "%packageDir%" (
+    ECHO Error: Could not find the path "%packageDir%" >> "%ERROR_FILE%"
     EXIT /B 1
 )
 
-:: Make sure the provided path is a file, not a directory
-IF EXIST "%bodyPath%\*" (
-    ECHO Error: The provided package must be a .zip file. >> "%ERROR_FILE%"
-    ECHO "%bodyPath%" is a directory. >> "%ERROR_FILE%"
+:: Make sure the provided path is a directory, not a file
+IF NOT EXIST "%packageDir%\*" (
+    ECHO Error: The provided path must be a directory. >> "%ERROR_FILE%"
+    ECHO "%packageDir%" is a file. >> "%ERROR_FILE%"
     EXIT /B 1
 )
 
-:: Make sure the provided path is a zip file
-SET ext=""
-FOR %%f IN ("%bodyPath%") DO SET ext=%%~xf
-IF NOT %ext%==.zip (
-    ECHO Error: The provided package must be a .zip file. >> "%ERROR_FILE%"
-    ECHO "%bodyPath%" is a %ext% file. >> "%ERROR_FILE%"
+:: Make sure the directory is not empty
+SET numFiles=0
+FOR %%f IN ("%packageDir%\*") DO SET /A numFiles+=1
+IF %numFiles%==0 (
+    ECHO No files were found in the provided directory. >> "%ERROR_FILE%"
+    ECHO Lambda package creation cancelled. >> "%ERROR_FILE%"
     EXIT /B 1
 )
 
@@ -346,7 +342,45 @@ EXIT /B 0
 
 
 ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-:: int uploadPackage(string key, string bodypath, string profile, string options="")
+:: int compressPackage(string packageDir)
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+:compressPackage
+
+SETLOCAL EnableDelayedExpansion
+
+SET compressErrFile=%tempDir%\compressErr.txt
+
+:: Remove any trailing slash from the provided directory path
+SET hasSlash=false
+IF %packageDir:~-1%==/ SET hasSlash=true
+IF %packageDir:~-1%==\ SET hasSlash=true
+IF %hasSlash%==true SET packageDir=%packageDir:~0,-1%
+
+:: Compress the files in the provided directory using 7-Zip
+ECHO.
+ECHO Compressing the contents of the provided directory...
+SET oldDir=%CD%
+CD /D %packageDir%      &REM Without changing directories, 7-Zip would compress all files inside a parent folder, but Lambda expects files at the root
+7z a -tzip -mx9 -mmt "%PACKAGE_FILE%" "*" > NUL 2> "%compressErrFile%"
+CD /D %oldDir%
+
+:: If any 7-Zip errors occurred then just log them and early exit
+FOR /F %%i IN ("%compressErrFile%") DO SET size=%%~zi
+IF /I %size% GTR 0 (
+    ECHO Compression failed with error message: >> "%ERROR_FILE%"
+    TYPE "%compressErrFile%" >> "%ERROR_FILE%"
+    DEL "%compressErrFile%"
+    EXIT /B 1
+) ELSE (
+    ECHO Lambda package created^^!
+)
+DEL "%compressErrFile%"
+
+EXIT /B 0
+
+
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+:: int uploadPackage(string key, string profile, string options="")
 ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 :uploadPackage
 
@@ -363,7 +397,7 @@ IF NOT "%options%"=="" ECHO    Options: %options%
 aws s3api put-object ^
     --bucket %bucket% ^
     --key %key% ^
-    --body "%bodyPath%" ^
+    --body "%PACKAGE_FILE%" ^
     --acl private ^
     --storage-class STANDARD ^
     --server-side-encryption aws:kms ^
@@ -400,7 +434,16 @@ EXIT /B 0
 
 SETLOCAL EnableDelayedExpansion
 
-SET updateErrFile=%tempDir%\uploadErr.txt
+SET updateErrFile=%tempDir%\updateErr.txt
+
+:: If no function name was provided then just show a message and early exit
+SET function=%function:"=%
+IF "%function%"=="" (
+    ECHO.
+    ECHO No Lambda function selected for a code update.
+    ECHO Complete^^!
+    EXIT /B 0
+)
 
 :: Update the provided Lambda function's code
 ECHO.
