@@ -7,6 +7,11 @@ var aws = require("aws-sdk");
 var https = require("https");
 var url = require("url");
 
+// Some global vars
+var context;
+var returnUrl;
+var responseBody;
+
 // Maps from instance types to architectures for various types of AMIs
 var instanceTypeToArch = {
     "c1.medium":   "PV64",
@@ -67,14 +72,16 @@ var archToAMINamePattern = {
         "HVMG2": "CIS Amazon Linux*"
     }
 };
- 
-exports.handler = function(event, context) {
- 
+
+exports.handler = function(event, lambdaContext) { 
+
+    // Log the received request
     console.log("REQUEST RECEIVED:\n" + JSON.stringify(event));
+    context = lambdaContext;
         
     // Create the default response body
-    var parsedUrl = url.parse(event.ResponseURL);
-    var responseBody = JSON.stringify({
+    returnUrl = url.parse(event.ResponseURL);
+    responseBody = {
         Status: "",
         Reason: "See the details in CloudWatch Log Stream: " + context.logStreamName,
         PhysicalResourceId: context.logStreamName,
@@ -82,83 +89,80 @@ exports.handler = function(event, context) {
         RequestId: event.RequestId,
         LogicalResourceId: event.LogicalResourceId,
         Data: {}
-    });
+    };
     
     // For Delete requests, immediately send a SUCCESS response.
     if (event.RequestType == "Delete") {
         responseBody.Status = "SUCCESS";
-        sendResponse(event, context, responseBody);
-        context.done();
+        sendResponse();
         return;
-    } 
+    }
  
     // Get AMI IDs with the specified name pattern and owner
     var props = event.ResourceProperties;
-    var filterOptions = getInstanceFilters(props);
+    var searchOptions = getInstanceParams(props);
     var ec2 = new aws.EC2({region: props.Region});
-    ec2.describeImages({
-        Filters: [ { Name: "name", Values: [ archName ] } ],
-        Owners: [ owner ]
-    })
-    
-    // If any errors occurred then log them and respond with a FAILED status
-    .on("error", function(error) {
-        responseBody.Status = "FAILED";
-        responseBody.Data = { Error: "DescribeImages call failed" };
-        console.log(responseData.Error + ":\n", err);
-        sendResponse(parsedUrl, responseBody);
-        context.done();
-    })
-    
-    // Otherwise, get the latest stable AMI of those returned
-    // Respond with a SUCCESS/FAILED status according to whether one was found
-    .on("success", function(describeImagesResult) {
-        var latest = latestImage(describeImagesResult.Images);
-        responseBody.Status = (latest === null) ? "FAILED" : "SUCCESS";
-        if (latest !== null)
-            responseBody.Data = { Id: latest.ImageId };
-        sendResponse(parsedUrl, responseBody);
-        context.done();        
-    });
+    ec2.describeImages(searchOptions)
+       
+       // If any errors occurred then log them and respond with a FAILED status
+       .on("error", function(error, response) {
+            responseBody.Status = "FAILED";
+            responseBody.Data = { Error: "DescribeImages call failed" };
+            console.log(responseData.Error + ":\n", error);
+            sendResponse();
+       })
+       
+        // Otherwise, get the latest stable AMI of those returned
+        // Respond with a SUCCESS/FAILED status according to whether one was found
+       .send(function(err, response) {
+            var latest = latestImage(response.Images);
+            responseBody.Status = (latest === null) ? "FAILED" : "SUCCESS";
+            if (latest !== null)
+                responseBody.Data = { Id: latest.ImageId };
+            sendResponse();
+       });
 };
 
 // Send response to the pre-signed S3 URL 
-function sendResponse(url, responseBody) {
+function sendResponse() {
     // Log the response body
-    console.log("RESPONSE BODY:\n", responseBody);
+    var responseStr = JSON.stringify(responseBody);
+    console.log("RESPONSE BODY:\n", responseStr);
  
-    // Define an HTTPS request object for the response
-    console.log("SENDING RESPONSE...\n");
-    https.request({
-        hostname: url.hostname,
+    // Define options for the HTTPS response
+    var options = {
+        hostname: returnUrl.hostname,
         port: 443,
-        path: url.path,
+        path: returnUrl.path,
         method: "PUT",
         headers: {
-            "content-type": "",
-            "content-length": responseBody.length
+            // "content-type": "",
+            "content-length": responseStr.length
         }
-    })
+    };
     
-    // If any errors occur then log them and early exit
-    .on("error", function(error) {
-        console.log("sendResponse Error:" + error);
-    })
-    
-    // Otherwise, log the response's status and headers
-    .on("success", function(response) {
+    // Define the HTTPS requrest object for the response with these options
+    // If successful then log the response's status and headers
+    var response = https.request(options, function(response) {
         console.log("STATUS: " + response.statusCode);
         console.log("HEADERS: " + JSON.stringify(response.headers));
-    })
+        context.done();
+    });
+    
+    // If any errors occur then log them
+    response.on("error", function(error) {
+        console.log("sendResponse Error:" + error);
+        context.done();
+    });
   
     // Write the response body to the object
-    .write(responseBody)
-    .end();
+    console.log("SENDING RESPONSE...\n");
+    response.write(responseStr);
+    response.end();
 }
 
-function getInstanceFilters(properties) {
+function getInstanceParams(properties) {
     // Return the filter options to pass to ec2.describeImages() based on the given parameters
-    console.log("PROPERTIES (HI DAN):\n" + JSON.stringify(properties));
     var lookupType = properties.AmiLookupType;
     var arch = instanceTypeToArch[properties.InstanceType];
     var nameFilter = archToAMINamePattern[lookupType][arch];
