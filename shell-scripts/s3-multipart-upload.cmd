@@ -259,9 +259,9 @@ IF %help%==true (EXIT /B 0)
 
 :: Ensure required arguments were provided
 SET valid=true
-IF NOT DEFINED bucket (SET valid=false & ECHO Error: You must provide a bucket name (--bucket^)! >> "%ERROR_FILE%")
-IF NOT DEFINED partsdir (SET valid=false & ECHO Error: You must provide a path to a directory containing object parts! >> "%ERROR_FILE%")
-IF NOT DEFINED key (SET valid=false & ECHO Error: You must provide an object key (--key^)! >> "%ERROR_FILE%")
+IF NOT DEFINED partsdir (SET valid=false & ECHO Error: You must provide a path to a directory containing object parts >> "%ERROR_FILE%")
+IF NOT DEFINED bucket (SET valid=false & ECHO Error: You must provide a bucket name (--bucket^) >> "%ERROR_FILE%")
+IF NOT DEFINED key (SET valid=false & ECHO Error: You must provide an object key (--key^) >> "%ERROR_FILE%")
 
 :: Try to set the missing AWS credentials profile with an environment variable
 IF NOT DEFINED profile (
@@ -269,7 +269,7 @@ IF NOT DEFINED profile (
         SET profile=%AWS_DEFAULT_PROFILE%
     ) ELSE (
         SET valid=false
-        ECHO Error: You must provide an AWS CLI credentials profile (--profile^)! >> "%ERROR_FILE%"
+        ECHO Error: You must provide an AWS CLI credentials profile (--profile^) >> "%ERROR_FILE%"
     )
 )
 
@@ -431,7 +431,7 @@ FOR %%F IN ("%partsdir%\*") DO (
         --part-number !counter! ^
         --body "%%F" ^
         --upload-id %uploadID% ^
-        --profile %profile% 2> "%uploadErrFile%" | findstr ETag> "%RESPONSE_FILE%"      &:: File redirection must occur on same line as last option
+        --profile %profile% 2> "%uploadErrFile%" | findstr ETag> "%RESPONSE_FILE%"      &REM File redirection must occur on same line as last option
 
     :: If any AWS API errors occurred then log them and continue to the next object part
     SET size=0
