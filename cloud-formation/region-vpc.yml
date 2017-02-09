@@ -21,10 +21,6 @@ Parameters:
     Default: ALL
     AllowedValues: [ ALL, ACCEPT, REJECT, NONE ]
     Description: The type of traffic into/out of this VPC to log.  You can log all traffic, or only traffic that was accepted or rejected.  If you choose NONE, then no flow log will be created.
-  FlowLogRoleArn:
-    Type: String
-    Default: arn:aws:iam::ACCOUNT-ID:role/flow-log-role
-    Description: The ARN of a role that will allow the flow logs service to publish flow logs to CloudWatch Logs.  If you chose NONE for FlowLogTrafficType, then this value will be ignored.
 
 Conditions:
   CreateFlowLog: !Not [ !Equals [ !Ref FlowLogTrafficType, NONE ] ]
@@ -65,11 +61,39 @@ Resources:
     Type: AWS::EC2::FlowLog
     Condition: CreateFlowLog
     Properties:
-      DeliverLogsPermissionArn : !Ref FlowLogRoleArn
-      LogGroupName : !Join [ "-", [ !Ref "AWS::StackName", flow-log ] ]
+      DeliverLogsPermissionArn : !GetAtt FlowLogRole.Arn
+      LogGroupName : !Join [ "-", [ !Ref "AWS::StackName", vpc-flow-logs ] ]
       ResourceId : !Ref MainVPC
       ResourceType : VPC
       TrafficType : !Ref FlowLogTrafficType
+  FlowLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties: 
+      LogGroupName: !Join [ "-", [ !Ref "AWS::StackName", vpc-flow-logs ] ]
+      RetentionInDays: 60
+  FlowLogRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Join [ "-", [ !Ref "AWS::StackName", vpc-flow-log-role ] ]
+      Path: !Join [ "", [ "/flow-log-roles/", !Ref "AWS::StackName", "/" ] ]
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement: 
+          - Effect: Allow
+            Principal: { Service: vpc-flow-logs.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+      - PolicyName: FlowLogAccess
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            - logs:DescribeLogGroups
+            - logs:DescribeLogStreams
+            Resource: !GetAtt FlowLogGroup.Arn
 
 Outputs:
   MainVPC:
