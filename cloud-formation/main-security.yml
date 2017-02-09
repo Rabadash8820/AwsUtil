@@ -72,39 +72,9 @@ Resources:
       LoginProfile:
         Password: !Ref AdminPassword
         PasswordResetRequired: false
-        
-  # IAM Roles and Policicies
-  FlowLogRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: flow-log-role
-      Path: /flow-log-role/
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement: 
-          - Effect: Allow
-            Principal: { Service: vpc-flow-logs.amazonaws.com }
-            Action: sts:AssumeRole
-      Policies:
-      - PolicyName: FlowLogAccess
-        PolicyDocument:
-          Version: 2012-10-17
-          Statement:
-          - Effect: Allow
-            Action:
-            - logs:CreateLogGroup
-            - logs:CreateLogStream
-            - logs:PutLogEvents
-            - logs:DescribeLogGroups
-            - logs:DescribeLogStreams
-            Resource: "*"
   
         
 Outputs:
-  FlowLogRole:
-    Value: !Ref FlowLogRole
-    Description: RoleName of the role that creates VPC flow logs.
-    Export: { Name: FlowLogRole }
   AdminUser:
     Value: !Ref AdminUser
     Description: UserName of the new administrative user.
