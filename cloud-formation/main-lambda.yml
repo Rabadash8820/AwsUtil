@@ -65,7 +65,7 @@ Resources:
             - !Join ["", [ "arn:aws:s3:::", !Ref OrganizationPrefix, "-", !Ref "AWS::Region", "-", lambda, "/*" ] ]
           - # Allow encryption/decryption using the Lambda KMS key
             Effect: Allow
-            Resource: !GetAtt LambdaKmsKey.Arn
+            Resource: !GetAtt LambdaBucketKmsKey.Arn
             Action:
             - kms:Encrypt
             - kms:Decrypt
@@ -91,16 +91,16 @@ Resources:
             - !Join ["", [ "arn:aws:s3:::", !Ref OrganizationPrefix, "-", !Ref "AWS::Region", "-", lambda, "/*" ] ]
           - # Allow decrypting only with the Lambda KMS key
             Effect: Allow
-            Resource: !GetAtt LambdaKmsKey.Arn
+            Resource: !GetAtt LambdaBucketKmsKey.Arn
             Action:
             - kms:Decrypt
             - kms:DescribeKey
     
   # KMS Keys
-  LambdaKmsKey:
+  LambdaBucketKmsKey:
     Type: AWS::KMS::Key
     Properties: 
-      Description: The default key to encrypt Lambda functions uploaded to the Lambda bucket
+      Description: The default key to encrypt Lambda deployment packages uploaded to the Lambda bucket
       Enabled: true
       EnableKeyRotation: true
       KeyPolicy:    # Required by CloudFormation...
@@ -109,22 +109,26 @@ Resources:
         - # Prevent everyone but the root user from managing this key.  All IAM users with full kms permissions will still be able to manage this key though, so whatever.
           Effect: Allow
           Action: kms:*
-          Principal:
-            AWS: !Join [ "", [ "arn:aws:iam::", !Ref "AWS::AccountId", ":root" ] ]
+          Principal: { AWS: !Join [ "", [ "arn:aws:iam::", !Ref "AWS::AccountId", ":root" ] ] }
           Resource: "*"
-  LambdaKmsAlias:
+  LambdaBucketKmsAlias:
     Type: AWS::KMS::Alias
     Properties:
       AliasName: alias/lambda-bucket-kms-key
-      TargetKeyId: !Ref LambdaKmsKey
+      TargetKeyId: !Ref LambdaBucketKmsKey
         
 Outputs:
-  LambdaBucket:
+  LambdaS3Bucket:
     Value: !Ref LambdaBucket
-    Description: Name of the new Lambda logs bucket.
+    Description: Name of the new S3 bucket for Lambda deployment packages.
+    Export: { Name: LambdaS3Bucket }
+  LambdaBucketKmsKey:
+    Value: !Ref LambdaBucketKmsKey
+    Description: Key ID of the new KMS key for encrypting Lambda deployment packages uploaded to the Lambda bucket
+    Export: { Name: LambdaBucketKmsKey }
   LambdaAdminGroup:
     Value: !Ref LambdaAdmins
-    Description: Name of the new Lambda admin group.
+    Description: GroupName of the new Lambda admin group.
   LambdaReadOnlyGroup:
     Value: !Ref LambdaReadOnlyGroup
-    Description: Name of the new Lambda read-only group.
+    Description: GroupName of the new Lambda read-only group.

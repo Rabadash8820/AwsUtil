@@ -34,7 +34,7 @@ Resources:
 Outputs:
   AcmAdminGroup:
     Value: !Ref AcmAdmins
-    Description: Name of the new AWS Certificate Manager admin group.
+    Description: GroupName of the new AWS Certificate Manager admin group.
   AcmReadOnlyGroup:
     Value: !Ref AcmReadOnlyGroup
-    Description: Name of the new AWS Certificate Manager read-only group.
+    Description: GroupName of the new AWS Certificate Manager read-only group.

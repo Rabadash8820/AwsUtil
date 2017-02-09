@@ -1,0 +1,72 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: An EC2 instance with an AMI ID that is based on the instance's type and region.
+
+Metadata:
+  AWS::CloudFormation::Interface: 
+    ParameterGroups:
+    - Parameters:
+      - LambdaS3Bucket
+      - S3Key
+  
+Parameters:
+  LambdaS3Bucket:
+    Type: String
+    Default: mycompany-lambda
+    MinLength: 3
+    MaxLength: 63
+    AllowedPattern: ^[0-9A-Za-z\.\-_]*(?<!\.)$
+    Description: Name of the S3 bucket where the deployment package is stored. This bucket must reside in the same AWS region where you are creating the Lambda function.
+    ConstraintDescription: must contain only alphanumeric characters and/or one or more of the symbols .-_?<!
+  S3Key:
+    Type: String
+    Default: amilookup.zip
+    MinLength: 1
+    MaxLength: 1024
+    ConstraintDescription: must be a valid S3 key of length 1-1024.
+    Description: The name (S3 key) of the deployment package for this function, inside the Lambda S3 bucket.
+
+Resources:
+  AMILookupFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: AMILookup
+      Code:
+        S3Bucket: !Ref LambdaS3Bucket
+        S3Key: !Ref S3Key
+      Handler: amilookup.handler
+      Description: This Lambda function returns the id of the latest AMI matching the provided search parameters
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Runtime: nodejs4.3
+      Timeout: 30
+      MemorySize: 128   # MB, must be a multiple of 64 <= 1536, default is 128
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal: { Service: lambda.amazonaws.com }
+          Action: sts:AssumeRole
+      Path: /amilookup-lambda-role/
+      Policies:
+      - PolicyName: amilookup-lambda-role
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - # Allow sending logs
+            Effect: Allow
+            Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource: arn:aws:logs:*:*:*
+          - # Allow describing EC2 images, so we can find the latest AMI image IDs!
+            Effect: Allow
+            Action: ec2:DescribeImages
+            Resource: "*"
+Outputs:
+  AMILookupFunction:
+    Value: !Ref AMILookupFunction
+    Description: FunctionName of the new AMI Lookup Lambda function.
