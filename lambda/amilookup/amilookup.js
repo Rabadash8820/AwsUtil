@@ -56,6 +56,7 @@ var instanceTypeToArch = {
     "r3.large":    "HVM64",
     "r3.xlarge":   "HVM64",
     "t1.micro":    "PV64",
+    "t2.nano":     "HVM64",
     "t2.medium":   "HVM64",
     "t2.micro":    "HVM64",
     "t2.small":    "HVM64"
@@ -92,7 +93,7 @@ exports.handler = function(event, lambdaContext) {
     };
     
     // For Delete requests, immediately send a SUCCESS response.
-    if (event.RequestType == "Delete") {
+    if (event.RequestType === "Delete") {
         responseBody.Status = "SUCCESS";
         sendResponse();
         return;
@@ -116,9 +117,13 @@ exports.handler = function(event, lambdaContext) {
         // Respond with a SUCCESS/FAILED status according to whether one was found
        .send(function(err, response) {
             var latest = latestImage(response.Images);
-            responseBody.Status = (latest === null) ? "FAILED" : "SUCCESS";
-            if (latest !== null)
-                responseBody.Data = { Id: latest.ImageId };
+            if (latest === null) {
+                responseBody.Status = "FAILED";
+            }
+            else {
+                responseBody.Status = "SUCCESS";
+                responseBody.Data = { ImageId: latest.ImageId };
+            }
             sendResponse();
        });
 };
@@ -165,8 +170,8 @@ function getInstanceParams(properties) {
     // Return the filter options to pass to ec2.describeImages() based on the given parameters
     var lookupType = properties.AmiLookupType;
     var arch = instanceTypeToArch[properties.InstanceType];
+    console.log("IMAGE ARCHITECTURE:\t" + arch);
     var nameFilter = archToAMINamePattern[lookupType][arch];
-    var owner = (arch === "HVMG2") ? "679593333241" : "amazon";
     var options = {
         Filters: [
             { Name:"name",         Values: [ nameFilter ] },
@@ -174,24 +179,33 @@ function getInstanceParams(properties) {
             { Name:"image-type",   Values: [ "machine" ] },
             { Name:"architecture", Values: [ "x86_64" ] }
         ],
-        Owners: [ owner ]
+        // Owners: [ ]
     };
     
+    console.log("IMAGE SEARCH OPTIONS:\n" + JSON.stringify(options));
     return options;
 }
 
 function latestImage(images) {
     var latest = null;
     
-    // Try to find the latest stable AMI image in the provided list
-    // Image names are formatted as YYYY.MM.Ver.
-    images.sort(function(x, y) { return y.Name.localeCompare(x.Name); });
+    // Sort images in descending order based on CreationDate
+    images.sort(function(x, y) {
+        var xd = new Date(x.CreationDate);
+        var yd = new Date(y.CreationDate);
+        return yd.getTime() - xd.getTime();
+    });
+    
+    // Return the latest stable AMI
+    console.log("SORTED AMIs:\n" + JSON.stringify(images));
     for (var j=0; j < images.length; j++) {
         var lower = images[j].Name.toLowerCase();
         var beta = (lower.indexOf("beta") > -1);
         var rc = (lower.indexOf(".rc") > -1);
-        if (!beta && !rc)
+        if (!beta && !rc) {
             latest = images[j];
+            break;
+        }
     }
     
     return latest;
