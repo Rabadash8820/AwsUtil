@@ -1,0 +1,2 @@
+# Ignore all publish Lambda scripts
+lambda/publish-*.cmd
