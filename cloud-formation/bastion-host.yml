@@ -17,6 +17,7 @@ Metadata:
         Parameters:
         - PublicDns
         - HostedZone
+        - AmiLookupFunction
         - HardenOS
         - KeyPair
         - TimeZone
@@ -59,6 +60,10 @@ Parameters:
   HostedZone:
     Type: AWS::Route53::HostedZone::Id
     Description: The hosted zone in which the new bastion host's CNAME record will be stored.
+  AmiLookupFunction:
+    Type: String
+    Default: AMILookup
+    Description: Name of a Lambda function that can return the latest AMIs.  The function must be in the same account and region as this stack.
   HardenOS:
     Type: String
     Default: true
@@ -82,51 +87,6 @@ Parameters:
 Conditions:
   Harden: !Equals [ !Ref HardenOS, true ]
   
-Mappings:
-  AmiMap:
-    # Harden AMI is "CIS Amazon Linux Benchmark v2.0.0.1 - Level 1" v2.0.0.1
-    # Don't harden AMI is "Amazon Linux AMI (HVM / 64-bit)" v2016.09.1.20161221
-    
-    us-east-1:        # N. Virginia
-      harden:     ami-733a0c64
-      dontHarden: ami-9be6f38c
-    us-east-2:        # Ohio
-      harden:     ami-fa653f9f
-      dontHarden: ami-38cd975d
-    us-west-1:        # N. California
-      harden:     ami-5f3f6b3f
-      dontHarden: ami-b73d6cd7
-    us-west-2:        # Oregon
-      harden:     ami-2347eb43
-      dontHarden: ami-1e299d7e
-    eu-west-1:        # Ireland
-      harden:     ami-f52f7286
-      dontHarden: ami-c51e3eb6
-    eu-central-1:     #Frankfurt
-      harden:     ami-949450fb
-      dontHarden: ami-211ada4e
-    ap-northeast-1:   # Tokyo
-      harden:     ami-69db6f08
-      dontHarden: ami-9f0c67f8
-    ap-northeast-2:   # Seoul
-      harden:     ami-20a0774e
-      dontHarden: ami-94bb6dfa
-    ap-southeast-1:   # Singapore
-      harden:     ami-4f892b2c
-      dontHarden: ami-4dd6782e
-    ap-southeast-2:   # Sydney
-      harden:     ami-620f3101
-      dontHarden: ami-28cff44b
-    ap-south-1:       # Mumbai
-      harden:     ami-c53146aa
-      dontHarden: ami-9fc7b0f0
-    sa-east-1:        # Sao Paulo
-      harden:     ami-dce876b0
-      dontHarden: ami-bb40d8d7
-    ca-central-1:     # Central Canada
-      harden:     ami-eb20928f          # CIS AMI not supported in Canada yet
-      dontHarden: ami-eb20928f
-    
 Resources:  
   # Define the new public subnet
   Subnet:
@@ -148,12 +108,19 @@ Resources:
       SubnetId: !Ref Subnet
           
   # Define the EC2 instance
+  AmiLookup:
+    Type: Custom::AmiLookup
+    Properties:
+      ServiceToken: !Join [ ":", [ "arn:aws:lambda", !Ref "AWS::Region", !Ref "AWS::AccountId", "function", !Ref AmiLookupFunction ] ]
+      Region: !Ref "AWS::Region"
+      AmiLookupType: !If [Harden, hardened-amzn-linux, amzn-linux]
+      InstanceType: !If [Harden, t2.micro, t2.nano]
   Bastion:
     Type: AWS::EC2::Instance
     Properties:
       DisableApiTermination: false
       EbsOptimized: false
-      ImageId: !If [ Harden, !FindInMap [AmiMap, !Ref "AWS::Region", harden], !FindInMap [AmiMap, !Ref "AWS::Region", dontHarden] ]
+      ImageId: !GetAtt AmiLookup.ImageId
       InstanceInitiatedShutdownBehavior: stop
       InstanceType: !If [Harden, t2.micro, t2.nano]
       KeyName: !Ref KeyPair
