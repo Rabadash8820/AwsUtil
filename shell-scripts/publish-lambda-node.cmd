@@ -400,10 +400,10 @@ aws s3api put-object ^
     --body "%PACKAGE_FILE%" ^
     --acl private ^
     --storage-class STANDARD ^
-    --server-side-encryption aws:kms ^
-    --ssekms-key-id alias/lambda-bucket-kms-key ^
     %options% ^
     --profile %profile% 2> "%uploadErrFile%" | findstr ETag> "%RESPONSE_FILE%"      &:: File redirection must occur on same line as last option
+    REM --server-side-encryption aws:kms ^
+    REM --ssekms-key-id alias/lambda-bucket-kms-key ^
 
 :: If any AWS API errors occurred then just log them and early exit
 FOR /F %%i IN ("%uploadErrFile%") DO SET size=%%~zi
