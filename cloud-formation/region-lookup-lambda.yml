@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: 2010-09-09
 
-Description: An EC2 instance with an AMI ID that is based on the instance's type and region.
+Description: Returns AMIs and other values that are specific to the requested AWS Region.
 
 Metadata:
   AWS::CloudFormation::Interface: 
@@ -20,22 +20,22 @@ Parameters:
     ConstraintDescription: must contain only alphanumeric characters and/or one or more of the symbols .-_?<!
   S3Key:
     Type: String
-    Default: amilookup.zip
+    Default: region-lookup.zip
     MinLength: 1
     MaxLength: 1024
     ConstraintDescription: must be a valid S3 key of length 1-1024.
     Description: The name (S3 key) of the deployment package for this function, inside the Lambda S3 bucket.
 
 Resources:
-  AMILookupFunction:
+  RegionLookupFunction:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: AMILookup
+      FunctionName: RegionLookup
       Code:
         S3Bucket: !Ref LambdaS3Bucket
         S3Key: !Ref S3Key
-      Handler: amilookup.handler
-      Description: This Lambda function returns the id of the latest AMI matching the provided search parameters
+      Handler: region-lookup.handler
+      Description: This Lambda function returns returns AMIs and other values that are specific to the requested AWS Region
       Role: !GetAtt LambdaExecutionRole.Arn
       Runtime: nodejs4.3
       Timeout: 30
@@ -49,9 +49,9 @@ Resources:
         - Effect: Allow
           Principal: { Service: lambda.amazonaws.com }
           Action: sts:AssumeRole
-      Path: /amilookup-lambda-role/
+      Path: /region-lookup-lambda-role/
       Policies:
-      - PolicyName: amilookup-lambda-role
+      - PolicyName: region-lookup-lambda-role
         PolicyDocument:
           Version: 2012-10-17
           Statement:
@@ -67,6 +67,6 @@ Resources:
             Action: ec2:DescribeImages
             Resource: "*"
 Outputs:
-  AMILookupFunction:
-    Value: !Ref AMILookupFunction
-    Description: FunctionName of the new AMI Lookup Lambda function.
+  RegionLookupFunction:
+    Value: !Ref RegionLookupFunction
+    Description: FunctionName of the new AWS Region Lookup Lambda function.
