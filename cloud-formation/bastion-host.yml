@@ -62,8 +62,8 @@ Parameters:
     Description: The hosted zone in which the new bastion host's CNAME record will be stored.
   AmiLookupFunction:
     Type: String
-    Default: AMILookup
-    Description: Name of a Lambda function that can return the latest AMIs.  The function must be in the same account and region as this stack.
+    Default: RegionLookup
+    Description: Name of a Lambda function that can return the latest AMIs for this region.  The function must be in the same account and region as this stack.
   HardenOS:
     Type: String
     Default: true

@@ -19,7 +19,7 @@ Parameters:
     ConstraintDescription: "must be a string of upper and lowercase alphanumeric characters with no spaces, and any of the following characters: =,.@-.  Note that group names are not distinguished by case."
   LogBucketName:
     Type: String
-    Default: mycompany-logs
+    Default: mycompany-region-logs
     AllowedPattern: ^[a-z0-9.-]+$
     Description: The name of the bucket to which the Lambda-function S3 bucket will store logs.
     ConstraintDescription: must contain only lowercase letters, numbers, periods (.), and dashes (-).

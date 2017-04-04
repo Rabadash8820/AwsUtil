@@ -22,24 +22,24 @@ Parameters:
     Default: 1
     MinValue: 1
     MaxValue: 5
-    Description: The number of CIDR blocks from which SSH requests into a bastion host will be accepted. The actual CIDR blocks must be entered in the IngressCidrBlocks parameter.  Allowing SSH from ANY address (0.0.0.0/0) is not recommended.
+    Description: The number of CIDR blocks from which SSH requests into the bastion host will be accepted. The actual CIDR blocks must be entered in the IngressCidrBlocks parameter.  Allowing SSH from ANY address (0.0.0.0/0) is not recommended.
     ConstraintDescription: must be an integer between 1 and 5 (inclusive)
   IngressCidrBlocks:
     Type: CommaDelimitedList
     Default: 0.0.0.0/0
-    Description: An array of CIDR blocks that are separated by commas.  These are the actual CIDR blocks from which SSH requests into a bastion host will be accepted.  The total number of CIDR blocks should be one more than the total number of commas, and must match the number entered in NumIngressCidrBlocks.
+    Description: An array of CIDR blocks that are separated by commas.  These are the actual CIDR blocks from which SSH requests will be accepted.  The total number of CIDR blocks should be one more than the total number of commas, and must match the number entered in NumIngressCidrBlocks.
     ConstraintDescription: must be a comma-delimited list of valid CIDR blocks (e.g., 10.20.114.23/16), with no comma after the last item.
   NumEgressCidrBlocks:
     Type: Number
     Default: 1
     MinValue: 1
     MaxValue: 5
-    Description: The number of CIDR blocks to which SSH requests from a bastion host may be sent. The actual CIDR blocks must be entered in the EgressCidrBlocks parameter.  Allowing SSH to ANY address (0.0.0.0/0) is not recommended.  Make sure that the SecurityGroup parameter also allows SSH egress to these IPs!
+    Description: The number of CIDR blocks to which SSH requests from the bastion host may be sent. The actual CIDR blocks must be entered in the EgressCidrBlocks parameter.  Allowing SSH to ANY address (0.0.0.0/0) is not recommended.
     ConstraintDescription: must be an integer between 1 and 5 (inclusive)
   EgressCidrBlocks:
     Type: CommaDelimitedList
     Default: 10.0.0.0/16
-    Description: An array of CIDR blocks that are separated by commas.  These are the actual CIDR blocks to which SSH requests from a bastion host may be sent.  The total number of CIDR blocks should be one more than the total number of commas, and must match the number entered in NumEgressCidrBlocks.
+    Description: An array of CIDR blocks that are separated by commas.  These are the actual CIDR blocks to which SSH requests may be sent.  The total number of CIDR blocks should be one more than the total number of commas, and must match the number entered in NumEgressCidrBlocks.
     ConstraintDescription: must be a comma-delimited list of valid CIDR blocks (e.g., 10.20.114.23/16), with no comma after the last item.
   
 Conditions:
@@ -60,7 +60,7 @@ Resources:
   PubACL:
     Type: AWS::EC2::NetworkAcl
     Properties:
-      VpcId: !ImportValue MainVPC
+      VpcId: !Ref MainVPC
   InEphemeraAcl:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
@@ -380,7 +380,7 @@ Resources:
   BastionSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      VpcId: !ImportValue MainVPC
+      VpcId: !Ref MainVPC
       GroupDescription: Allow SSH access from authorized computers, and SSH access to private subnets.  Also allow HTTP for automatic updates and NTP for clock synchronization.
       SecurityGroupIngress:
       - # ICMP traffic from anywhere
