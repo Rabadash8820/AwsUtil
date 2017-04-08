@@ -5,7 +5,8 @@ Description: VPC with an Internet Gateway
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
-      - Parameters:
+      -
+        Parameters:
         - CidrBlock
         - FlowLogTrafficType
 

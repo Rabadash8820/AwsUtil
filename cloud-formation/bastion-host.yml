@@ -5,14 +5,16 @@ Description: A new bastion host in its own public subnet, automatically updated,
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
-      - Label:
+      -
+        Label:
           default: Subnet Configuration
         Parameters:
         - NetworkStackName
         - SecurityStackName
         - AzName
         - SubnetCidrBlock
-      - Label:
+      -
+        Label:
           default: Bastion Host Instance Configuration
         Parameters:
         - PublicDns

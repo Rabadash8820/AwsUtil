@@ -5,7 +5,8 @@ Description: An S3 bucket for bucket server access logs, and IAM principals for 
 Metadata:
   AWS::CloudFormation::Interface: 
     ParameterGroups:
-    - Parameters:
+    -
+      Parameters:
       - OrganizationPrefix
       - DaysToInfrequentAccess
       - DaysToExpire
