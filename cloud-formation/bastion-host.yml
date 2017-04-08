@@ -60,10 +60,10 @@ Parameters:
   HostedZone:
     Type: AWS::Route53::HostedZone::Id
     Description: The hosted zone in which the new bastion host's CNAME record will be stored.
-  AmiLookupFunction:
+  AmiLookupFunctionArn:
     Type: String
-    Default: RegionLookup
-    Description: Name of a Lambda function that can return the latest AMIs for this region.  The function must be in the same account and region as this stack.
+    Default: arn:aws:lambda:REGION:ACCOUNT_ID:function:RegionLookup
+    Description: ARN of a Lambda function that can return the latest AMIs for this region.  Replace "REGION" and "ACCOUNT_ID" with appropriate values, and the function name if applicable.
   HardenOS:
     Type: String
     Default: true
@@ -111,7 +111,7 @@ Resources:
   AmiLookup:
     Type: Custom::AmiLookup
     Properties:
-      ServiceToken: !Join [ ":", [ "arn:aws:lambda", !Ref "AWS::Region", !Ref "AWS::AccountId", "function", !Ref AmiLookupFunction ] ]
+      ServiceToken: !Ref AmiLookupFunctionArn
       Region: !Ref "AWS::Region"
       AmiLookupType: !If [Harden, hardened-amzn-linux, amzn-linux]
       InstanceType: !If [Harden, t2.micro, t2.nano]
