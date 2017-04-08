@@ -22,7 +22,7 @@ Parameters:
     Default: 1
     MinValue: 1
     MaxValue: 5
-    Description: The number of CIDR blocks from which SSH requests into the bastion host will be accepted. The actual CIDR blocks must be entered in the IngressCidrBlocks parameter.  Allowing SSH from ANY address (0.0.0.0/0) is not recommended.
+    Description: The number of CIDR blocks from which SSH requests into the bastion host will be accepted. The actual CIDR blocks must be entered in the IngressCidrBlocks parameter.  Allowing SSH from ANY address (0.0.0.0/0) is strongly discouraged.
     ConstraintDescription: must be an integer between 1 and 5 (inclusive)
   IngressCidrBlocks:
     Type: CommaDelimitedList
@@ -34,7 +34,7 @@ Parameters:
     Default: 1
     MinValue: 1
     MaxValue: 5
-    Description: The number of CIDR blocks to which SSH requests from the bastion host may be sent. The actual CIDR blocks must be entered in the EgressCidrBlocks parameter.  Allowing SSH to ANY address (0.0.0.0/0) is not recommended.
+    Description: The number of CIDR blocks to which SSH requests from the bastion host may be sent. The actual CIDR blocks must be entered in the EgressCidrBlocks parameter.  Allowing SSH to ANY address (0.0.0.0/0) is strongly discouraged.
     ConstraintDescription: must be an integer between 1 and 5 (inclusive)
   EgressCidrBlocks:
     Type: CommaDelimitedList
@@ -381,7 +381,7 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       VpcId: !Ref MainVPC
-      GroupDescription: Allow SSH access from authorized computers, and SSH access to private subnets.  Also allow HTTP for automatic updates and NTP for clock synchronization.
+      GroupDescription: Allow SSH access from authorized computers, and SSH from bastion hosts.  Also allow HTTP for automatic updates, NTP for clock synchronization, and SMTP for update Email notifications.
       SecurityGroupIngress:
       - # ICMP traffic from anywhere
         IpProtocol: icmp
