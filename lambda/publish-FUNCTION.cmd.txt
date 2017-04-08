@@ -4,8 +4,8 @@
 :: *******************************************************************************************************
 
 :: Replace all the upper-case strings with appropriate values
-:: RUNTIME should be replaced with the appropriate suffix so get the name of the publish script that you are trying to call
-::      For example, replace with RUNTIME with "node" to call the publish-lambda-node script and publish a Node.js Lambda package
-:: Remember that all publish-*.cmd scripts in the lambda folder will be git-ignored
+:: RUNTIME should be replaced with the appropriate suffix to get the name of the publish script that you are trying to call
+::      For example, replace RUNTIME with "node" to call the publish-lambda-node script and publish a Node.js Lambda package
+:: Remember that all publish-*.cmd scripts in the lambda folder will be git-ignored, so you can create as many as you need without polluting the repo
 CALL ..\shell-scripts\publish-lambda-RUNTIME --profile PROFILE --bucket BUCKET --key KEY --function FUNCTION "PACKAGE_DIR"
 ECHO. && PAUSE
