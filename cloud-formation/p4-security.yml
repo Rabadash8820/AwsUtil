@@ -1,0 +1,431 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: A Perforce master server in its own public subnet and automatically updated.
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Parameters:
+        - MainVPC
+        - NumIngressCidrBlocks
+        - IngressCidrBlocks
+        - BastionCidrBlock
+
+Parameters:
+  MainVPC:
+    Type: AWS::EC2::VPC::Id
+    Description: The VPC in which to create the security groups and network ACL.
+    ConstraintDescription: must contain only alphanumeric characters and/or hyphens, and start with a letter
+  NumIngressCidrBlocks:
+    Type: Number
+    Default: 1
+    MinValue: 1
+    MaxValue: 5
+    Description: The number of CIDR blocks from which P4 requests into the P4 master server will be accepted. The actual CIDR blocks must be entered in the IngressCidrBlocks parameter.  Allowing P4 from ANY address (0.0.0.0/0) is strongly discouraged.
+    ConstraintDescription: must be an integer between 1 and 5 (inclusive)
+  IngressCidrBlocks:
+    Type: CommaDelimitedList
+    Default: 0.0.0.0/0
+    Description: An array of CIDR blocks that are separated by commas.  These are the actual CIDR blocks from which P4 requests will be accepted.  The total number of CIDR blocks should be one more than the total number of commas, and must match the number entered in NumIngressCidrBlocks.
+    ConstraintDescription: must be a comma-delimited list of valid CIDR blocks (e.g., 10.20.114.23/16), with no comma after the last item.
+  BastionCidrBlock:
+    Type: String
+    Default: 0.0.0.0/0
+    AllowedPattern: ^\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3}(\/\d{1,2})?$
+    Description: This the CIDR block from which SSH requests will be accepted.  This should ONLY be the CIDR block containing your bastion host instances.  Allowing SSH from ANY address (0.0.0.0/0) is strongly discouraged.
+    ConstraintDescription: must be a valid CIDR block (e.g., 10.5.114.23/16).
+  
+Conditions:
+  IngressCidr5: !Equals [ !Ref NumIngressCidrBlocks, 5 ]
+  IngressCidr4: !Or [ !Equals [ !Ref NumIngressCidrBlocks, 4 ], !Condition IngressCidr5]
+  IngressCidr3: !Or [ !Equals [ !Ref NumIngressCidrBlocks, 3 ], !Condition IngressCidr4]
+  IngressCidr2: !Or [ !Equals [ !Ref NumIngressCidrBlocks, 2 ], !Condition IngressCidr3]
+  IngressCidr1: !Or [ !Equals [ !Ref NumIngressCidrBlocks, 1 ], !Condition IngressCidr2]
+    
+Resources:
+  
+  # Network ACL for the new public subnet(s)
+  PubACL:
+    Type: AWS::EC2::NetworkAcl
+    Properties:
+      VpcId: !Ref MainVPC
+  InEphemeralAcl:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref PubACL
+      RuleNumber: 100
+      Egress: false
+      RuleAction: allow
+      Protocol: 6
+      PortRange: { From: 1024, To: 65535 }
+      CidrBlock: 0.0.0.0/0
+  InIcmpAcl:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref PubACL
+      RuleNumber: 110
+      Egress: false
+      RuleAction: allow
+      Protocol: 1
+      Icmp: { Code: -1, Type: -1 }
+      CidrBlock: 0.0.0.0/0
+  InHttpAcl:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref PubACL
+      RuleNumber: 120
+      Egress: false
+      RuleAction: allow
+      Protocol: 6
+      CidrBlock: 0.0.0.0/0
+      PortRange: { From: 80, To: 80 }
+  InNtpAcl:     # Both outbound and inbound ACL entries required
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref PubACL
+      RuleNumber: 130
+      Egress: false
+      RuleAction: allow
+      Protocol: 17
+      CidrBlock: 0.0.0.0/0
+      PortRange: { From: 123, To: 123 }
+  OutEphemeralAcl:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref PubACL
+      RuleNumber: 100
+      Egress: true
+      RuleAction: allow
+      Protocol: 6
+      PortRange: { From: 1024, To: 65535 }
+      CidrBlock: 0.0.0.0/0
+  OutIcmpAcl:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref PubACL
+      RuleNumber: 110
+      Egress: true
+      RuleAction: allow
+      Protocol: 1
+      Icmp: { Code: -1, Type: -1 }
+      CidrBlock: 0.0.0.0/0
+  OutHttpAcl:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref PubACL
+      RuleNumber: 120
+      Egress: true
+      RuleAction: allow
+      Protocol: 6
+      PortRange: { From: 80, To: 80 }
+      CidrBlock: 0.0.0.0/0
+  OutNtpAcl:     # Both outbound and inbound ACL entries required
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref PubACL
+      RuleNumber: 130
+      Egress: true
+      RuleAction: allow
+      Protocol: 17
+      CidrBlock: 0.0.0.0/0
+      PortRange: { From: 123, To: 123 }
+  OutSmtpAcl:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref PubACL
+      RuleNumber: 140
+      Egress: true
+      RuleAction: allow
+      Protocol: 6
+      CidrBlock: 0.0.0.0/0
+      PortRange: { From: 25, To: 25 }
+      
+  # SSH/P4 ingress ACL rules
+  InSshAcl:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref PubACL
+      RuleNumber: 140
+      Egress: false
+      RuleAction: allow
+      Protocol: 6
+      PortRange: { From: 22, To: 22 }
+      CidrBlock: !Ref BastionCidrBlock
+  InP4Acl1:
+    Condition: IngressCidr1
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref PubACL
+      RuleNumber: 151
+      Egress: false
+      RuleAction: allow
+      Protocol: 6
+      PortRange: { From: 1666, To: 1666 }
+      CidrBlock: !Select [ 0, !Ref IngressCidrBlocks ]
+  InP4Acl2:
+    Condition: IngressCidr2
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref PubACL
+      RuleNumber: 152
+      Egress: false
+      RuleAction: allow
+      Protocol: 6
+      PortRange: { From: 1666, To: 1666 }
+      CidrBlock: !Select [ 1, !Ref IngressCidrBlocks ]
+  InP4Acl3:
+    Condition: IngressCidr3
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref PubACL
+      RuleNumber: 153
+      Egress: false
+      RuleAction: allow
+      Protocol: 6
+      PortRange: { From: 1666, To: 1666 }
+      CidrBlock: !Select [ 2, !Ref IngressCidrBlocks ]
+  InP4Acl4:
+    Condition: IngressCidr4
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref PubACL
+      RuleNumber: 154
+      Egress: false
+      RuleAction: allow
+      Protocol: 6
+      PortRange: { From: 1666, To: 1666 }
+      CidrBlock: !Select [ 3, !Ref IngressCidrBlocks ]
+  InP4Acl5:
+    Condition: IngressCidr5
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref PubACL
+      RuleNumber: 155
+      Egress: false
+      RuleAction: allow
+      Protocol: 6
+      PortRange: { From: 1666, To: 1666 }
+      CidrBlock: !Select [ 4, !Ref IngressCidrBlocks ]
+
+  # P4 egress ACL rules
+  OutP4Acl1:
+    Condition: IngressCidr1
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref PubACL
+      RuleNumber: 151
+      Egress: true
+      RuleAction: allow
+      Protocol: 6
+      PortRange: { From: 1666, To: 1666 }
+      CidrBlock: !Select [ 0, !Ref IngressCidrBlocks ]
+  OutP4Acl2:
+    Condition: IngressCidr2
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref PubACL
+      RuleNumber: 152
+      Egress: true
+      RuleAction: allow
+      Protocol: 6
+      PortRange: { From: 1666, To: 1666 }
+      CidrBlock: !Select [ 1, !Ref IngressCidrBlocks ]
+  OutP4Acl3:
+    Condition: IngressCidr3
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref PubACL
+      RuleNumber: 153
+      Egress: true
+      RuleAction: allow
+      Protocol: 6
+      PortRange: { From: 1666, To: 1666 }
+      CidrBlock: !Select [ 2, !Ref IngressCidrBlocks ]
+  OutP4Acl4:
+    Condition: IngressCidr4
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref PubACL
+      RuleNumber: 154
+      Egress: true
+      RuleAction: allow
+      Protocol: 6
+      PortRange: { From: 1666, To: 1666 }
+      CidrBlock: !Select [ 3, !Ref IngressCidrBlocks ]
+  OutP4Acl5:
+    Condition: IngressCidr5
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref PubACL
+      RuleNumber: 155
+      Egress: true
+      RuleAction: allow
+      Protocol: 6
+      PortRange: { From: 1666, To: 1666 }
+      CidrBlock: !Select [ 4, !Ref IngressCidrBlocks ]
+      
+  # Security Group for the bastion hosts
+  PerforceSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref MainVPC
+      GroupDescription: Allow P4 access from authorized computers, and SSH from bastion hosts.  Also allow HTTP for automatic updates, NTP for clock synchronization, and SMTP for update Email notifications.
+      SecurityGroupIngress:
+      - # ICMP traffic from anywhere
+        IpProtocol: icmp
+        FromPort: -1
+        ToPort: -1
+        CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+      - # ICMP traffic to anywhere
+        IpProtocol: icmp
+        FromPort: -1
+        ToPort: -1
+        CidrIp: 0.0.0.0/0
+      - # HTTP for automatic updates
+        IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: 0.0.0.0/0
+      - # NTP to synchronize UTC time with a pool of public servers (only outbound rule required)
+        IpProtocol: udp
+        FromPort: 123
+        ToPort: 123
+        CidrIp: 0.0.0.0/0
+      - # SMTP to send cron output
+        IpProtocol: tcp
+        FromPort: 25
+        ToPort: 25
+        CidrIp: 0.0.0.0/0
+  IngressFromSameSgRule:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !GetAtt PerforceSG.GroupId
+      IpProtocol: -1
+      SourceSecurityGroupId: !GetAtt PerforceSG.GroupId
+  EgressToSameSgRule:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !GetAtt PerforceSG.GroupId
+      IpProtocol: -1
+      SourceSecurityGroupId: !GetAtt PerforceSG.GroupId
+        
+  # SSH/RDP ingress security group rules
+  SshIngressSgRule:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !GetAtt PerforceSG.GroupId
+      CidrIp: !Ref BastionCidrBlock
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+  P4IngressSgRule1:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: IngressCidr1
+    Properties:
+      GroupId: !GetAtt PerforceSG.GroupId
+      CidrIp: !Select [ 0, !Ref IngressCidrBlocks ]
+      IpProtocol: tcp
+      FromPort: 1666
+      ToPort: 1666
+  P4IngressSgRule2:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: IngressCidr2
+    Properties:
+      GroupId: !GetAtt PerforceSG.GroupId
+      CidrIp: !Select [ 1, !Ref IngressCidrBlocks ]
+      IpProtocol: tcp
+      FromPort: 1666
+      ToPort: 1666
+  P4IngressSgRule3:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: IngressCidr3
+    Properties:
+      GroupId: !GetAtt PerforceSG.GroupId
+      CidrIp: !Select [ 2, !Ref IngressCidrBlocks ]
+      IpProtocol: tcp
+      FromPort: 1666
+      ToPort: 1666
+  P4IngressSgRule4:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: IngressCidr4
+    Properties:
+      GroupId: !GetAtt PerforceSG.GroupId
+      CidrIp: !Select [ 3, !Ref IngressCidrBlocks ]
+      IpProtocol: tcp
+      FromPort: 1666
+      ToPort: 1666
+  P4IngressSgRule5:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: IngressCidr5
+    Properties:
+      GroupId: !GetAtt PerforceSG.GroupId
+      CidrIp: !Select [ 4, !Ref IngressCidrBlocks ]
+      IpProtocol: tcp
+      FromPort: 1666
+      ToPort: 1666
+  
+  # SSH/RDP egress security group rules
+  SshEgressSgRule:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !GetAtt PerforceSG.GroupId
+      CidrIp: !Ref BastionCidrBlock
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+  P4EgressSgRule1:
+    Type: AWS::EC2::SecurityGroupEgress
+    Condition: IngressCidr1
+    Properties:
+      GroupId: !GetAtt PerforceSG.GroupId
+      CidrIp: !Select [ 0, !Ref IngressCidrBlocks ]
+      IpProtocol: tcp
+      FromPort: 1666
+      ToPort: 1666
+  P4EgressSgRule2:
+    Type: AWS::EC2::SecurityGroupEgress
+    Condition: IngressCidr2
+    Properties:
+      GroupId: !GetAtt PerforceSG.GroupId
+      CidrIp: !Select [ 1, !Ref IngressCidrBlocks ]
+      IpProtocol: tcp
+      FromPort: 1666
+      ToPort: 1666
+  P4EgressSgRule3:
+    Type: AWS::EC2::SecurityGroupEgress
+    Condition: IngressCidr3
+    Properties:
+      GroupId: !GetAtt PerforceSG.GroupId
+      CidrIp: !Select [ 2, !Ref IngressCidrBlocks ]
+      IpProtocol: tcp
+      FromPort: 1666
+      ToPort: 1666
+  P4EgressSgRule4:
+    Type: AWS::EC2::SecurityGroupEgress
+    Condition: IngressCidr4
+    Properties:
+      GroupId: !GetAtt PerforceSG.GroupId
+      CidrIp: !Select [ 3, !Ref IngressCidrBlocks ]
+      IpProtocol: tcp
+      FromPort: 1666
+      ToPort: 1666
+  P4EgressSgRule5:
+    Type: AWS::EC2::SecurityGroupEgress
+    Condition: IngressCidr5
+    Properties:
+      GroupId: !GetAtt PerforceSG.GroupId
+      CidrIp: !Select [ 4, !Ref IngressCidrBlocks ]
+      IpProtocol: tcp
+      FromPort: 1666
+      ToPort: 1666
+          
+Outputs:
+  P4NetworkACL:
+    Value: !Ref PubACL
+    Export: { Name: P4NetworkACL }
+    Description: ID of the Perforce master server network ACL
+  P4SecurityGroup:
+    Value: !Ref PerforceSG
+    Export: { Name: P4SecurityGroup }
+    Description: ID of the Perforce master server security group
