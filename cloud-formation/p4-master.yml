@@ -77,6 +77,29 @@ Resources:
       NetworkAclId: !Ref PubACL
       SubnetId: !Ref Subnet
   
+  # Place an Elastic File System in the new subnet
+  SharedFileSystem:
+    Type: AWS::EFS::FileSystem
+    Properties:
+      PerformanceMode: generalPurpose
+  SharedFSMountTarget:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref SharedFileSystem
+      SecurityGroups: [ !Ref MountTargetSG ]
+      SubnetId: !Ref Subnet
+  MountTargetSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !ImportValue MainVPC
+      GroupDescription: Allow NFS access from the Perforce master server.
+      SecurityGroupIngress:
+      - # NFS traffic from P4 master server
+        IpProtocol: tcp
+        FromPort: 2049
+        ToPort: 2049
+        SourceSecurityGroupId: !Ref PerforceSG
+  
   # Network ACL for the new public subnet(s)
   PubACL:
     Type: AWS::EC2::NetworkAcl
