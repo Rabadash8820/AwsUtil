@@ -5,7 +5,8 @@ Description: An S3 bucket for Lambda functions, and IAM principals for managing 
 Metadata:
   AWS::CloudFormation::Interface: 
     ParameterGroups:
-    - Parameters:
+    -
+      Parameters:
       - OrganizationPrefix
       - LogBucketName
       - KmsAdminUserName

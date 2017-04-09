@@ -5,7 +5,8 @@ Description: Security group for bastion hosts
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
-      - Parameters:
+      -
+        Parameters:
         - MainVPC
         - NumIngressCidrBlocks
         - IngressCidrBlocks

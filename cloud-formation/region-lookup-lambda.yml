@@ -5,7 +5,8 @@ Description: Returns AMIs and other values that are specific to the requested AW
 Metadata:
   AWS::CloudFormation::Interface: 
     ParameterGroups:
-    - Parameters:
+    -
+      Parameters:
       - LambdaS3Bucket
       - S3Key
   
