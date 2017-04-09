@@ -518,21 +518,21 @@ Resources:
   IngressFromSameSgRule:
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
-      GroupId: !GetAtt PerforceSG.GroupId
+      GroupId: !Ref PerforceSG
       IpProtocol: -1
-      SourceSecurityGroupId: !GetAtt PerforceSG.GroupId
+      SourceSecurityGroupId: !Ref PerforceSG
   EgressToSameSgRule:
     Type: AWS::EC2::SecurityGroupEgress
     Properties:
-      GroupId: !GetAtt PerforceSG.GroupId
+      GroupId: !Ref PerforceSG
       IpProtocol: -1
-      SourceSecurityGroupId: !GetAtt PerforceSG.GroupId
+      SourceSecurityGroupId: !Ref PerforceSG
         
   # SSH/RDP ingress security group rules
   SshIngressSgRule:
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
-      GroupId: !GetAtt PerforceSG.GroupId
+      GroupId: !Ref PerforceSG
       CidrIp: !Ref BastionCidrBlock
       IpProtocol: tcp
       FromPort: 22
@@ -541,7 +541,7 @@ Resources:
     Type: AWS::EC2::SecurityGroupIngress
     Condition: IngressCidr1
     Properties:
-      GroupId: !GetAtt PerforceSG.GroupId
+      GroupId: !Ref PerforceSG
       CidrIp: !Select [ 0, !Ref IngressCidrBlocks ]
       IpProtocol: tcp
       FromPort: 1666
@@ -550,7 +550,7 @@ Resources:
     Type: AWS::EC2::SecurityGroupIngress
     Condition: IngressCidr2
     Properties:
-      GroupId: !GetAtt PerforceSG.GroupId
+      GroupId: !Ref PerforceSG
       CidrIp: !Select [ 1, !Ref IngressCidrBlocks ]
       IpProtocol: tcp
       FromPort: 1666
@@ -559,7 +559,7 @@ Resources:
     Type: AWS::EC2::SecurityGroupIngress
     Condition: IngressCidr3
     Properties:
-      GroupId: !GetAtt PerforceSG.GroupId
+      GroupId: !Ref PerforceSG
       CidrIp: !Select [ 2, !Ref IngressCidrBlocks ]
       IpProtocol: tcp
       FromPort: 1666
@@ -568,7 +568,7 @@ Resources:
     Type: AWS::EC2::SecurityGroupIngress
     Condition: IngressCidr4
     Properties:
-      GroupId: !GetAtt PerforceSG.GroupId
+      GroupId: !Ref PerforceSG
       CidrIp: !Select [ 3, !Ref IngressCidrBlocks ]
       IpProtocol: tcp
       FromPort: 1666
@@ -577,7 +577,7 @@ Resources:
     Type: AWS::EC2::SecurityGroupIngress
     Condition: IngressCidr5
     Properties:
-      GroupId: !GetAtt PerforceSG.GroupId
+      GroupId: !Ref PerforceSG
       CidrIp: !Select [ 4, !Ref IngressCidrBlocks ]
       IpProtocol: tcp
       FromPort: 1666
@@ -587,7 +587,7 @@ Resources:
   SshEgressSgRule:
     Type: AWS::EC2::SecurityGroupEgress
     Properties:
-      GroupId: !GetAtt PerforceSG.GroupId
+      GroupId: !Ref PerforceSG
       CidrIp: !Ref BastionCidrBlock
       IpProtocol: tcp
       FromPort: 22
@@ -596,7 +596,7 @@ Resources:
     Type: AWS::EC2::SecurityGroupEgress
     Condition: IngressCidr1
     Properties:
-      GroupId: !GetAtt PerforceSG.GroupId
+      GroupId: !Ref PerforceSG
       CidrIp: !Select [ 0, !Ref IngressCidrBlocks ]
       IpProtocol: tcp
       FromPort: 1666
@@ -605,7 +605,7 @@ Resources:
     Type: AWS::EC2::SecurityGroupEgress
     Condition: IngressCidr2
     Properties:
-      GroupId: !GetAtt PerforceSG.GroupId
+      GroupId: !Ref PerforceSG
       CidrIp: !Select [ 1, !Ref IngressCidrBlocks ]
       IpProtocol: tcp
       FromPort: 1666
@@ -614,7 +614,7 @@ Resources:
     Type: AWS::EC2::SecurityGroupEgress
     Condition: IngressCidr3
     Properties:
-      GroupId: !GetAtt PerforceSG.GroupId
+      GroupId: !Ref PerforceSG
       CidrIp: !Select [ 2, !Ref IngressCidrBlocks ]
       IpProtocol: tcp
       FromPort: 1666
@@ -623,7 +623,7 @@ Resources:
     Type: AWS::EC2::SecurityGroupEgress
     Condition: IngressCidr4
     Properties:
-      GroupId: !GetAtt PerforceSG.GroupId
+      GroupId: !Ref PerforceSG
       CidrIp: !Select [ 3, !Ref IngressCidrBlocks ]
       IpProtocol: tcp
       FromPort: 1666
@@ -632,7 +632,7 @@ Resources:
     Type: AWS::EC2::SecurityGroupEgress
     Condition: IngressCidr5
     Properties:
-      GroupId: !GetAtt PerforceSG.GroupId
+      GroupId: !Ref PerforceSG
       CidrIp: !Select [ 4, !Ref IngressCidrBlocks ]
       IpProtocol: tcp
       FromPort: 1666
