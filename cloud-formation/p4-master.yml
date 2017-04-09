@@ -5,13 +5,27 @@ Description: A Perforce master server in its own public subnet and automatically
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
-    - Parameters:
-      - NetworkStackName
-      - AzName
-      - SubnetCidrBlock
-      - NumIngressCidrBlocks
-      - IngressCidrBlocks
-      - BastionCidrBlock
+      -
+        Label:
+          default: Subnet Configuration
+        Parameters:
+        - NetworkStackName
+        - AzName
+        - SubnetCidrBlock
+        - NumIngressCidrBlocks
+        - IngressCidrBlocks
+        - BastionCidrBlock
+      -
+        Label:
+          default: P4 Master Instance Configuration
+        Parameters:
+        - PublicDns
+        - HostedZone
+        - UseFreeTier
+        - AmiLookupFunction
+        - KeyPair
+        - TimeZone
+        - YumUpdateEmail
 
 Parameters:
   NetworkStackName:
@@ -20,11 +34,11 @@ Parameters:
     MinLength: 1
     MaxLength: 255
     AllowedPattern: ^[a-zA-Z][-a-zA-Z0-9]*$
-    Description: Name of an active CloudFormation stack that contains the networking resources needed to create a bastion host in its own public subnet.
+    Description: Name of an active CloudFormation stack that contains the networking resources needed to create a Perforce master server in its own public subnet.
     ConstraintDescription: must contain only alphanumeric characters and/or hyphens, and start with a letter
   AzName:
     Type: AWS::EC2::AvailabilityZone::Name
-    Description: The Availability Zone in which to create a public subnet for the new bastion host.
+    Description: The Availability Zone in which to create a public subnet for the Perforce master server.
   SubnetCidrBlock:
     Type: String
     Default: 10.0.150.0/28
@@ -49,6 +63,40 @@ Parameters:
     AllowedPattern: ^\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3}(\/\d{1,2})?$
     Description: This the CIDR block from which SSH requests will be accepted.  This should ONLY be the CIDR block containing your bastion host instances.  Allowing SSH from ANY address (0.0.0.0/0) is strongly discouraged.
     ConstraintDescription: must be a valid CIDR block (e.g., 10.5.114.23/16).
+    
+  PublicDns:
+    Type: String
+    Default: p4.mycompany.com
+    MaxLength: 255
+    AllowedPattern: ^([0-9A-Za-z]+[._-]?)+[0-9A-Za-z]+$
+    ConstraintDescription: must be a valid domain name, i.e., <= 255 alphanumeric characters, periods, hyphens, and underscores.
+    Description: The public DNS name that will be assigned to the Perforce master server.  It must be a subdomain of a hosted zone that has already been created in AWS.
+  HostedZone:
+    Type: AWS::Route53::HostedZone::Id
+    Description: The hosted zone in which the new Perforce master server's CNAME record will be stored.
+  UseFreeTier:
+    Type: String
+    Default: true
+    AllowedValues: [ true, false ]
+    Description: If true, the Perforce master server will use an EC2 instance type that is free-tier eligible.
+  AmiLookupFunctionArn:
+    Type: String
+    Default: arn:aws:lambda:REGION:ACCOUNT_ID:function:RegionLookup
+    Description: ARN of a Lambda function that can return the latest AMIs for this region.  Replace "REGION" and "ACCOUNT_ID" with appropriate values, and the function name if applicable.
+  KeyPair:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: The EC2 key pair needed to connect to all new Perforce servers.
+  TimeZone:
+    Type: String
+    Default: UTC
+    Description: Name of a time zone data file in /usr/share/zoneinfo (for example "America/New_York").  Used to set the time zone for the Perforce master server.
+  YumUpdateEmail:
+    Type: String
+    Default: admin@mycompany.com
+    MaxLength: 255
+    AllowedPattern: ^([0-9A-Za-z]+[._-]?)+[0-9A-Za-z]+@([0-9A-Za-z]+[._-]?)+\.[0-9A-Za-z]+$
+    ConstraintDescription: must be a valid Email address, like "frodo@theshire.com".
+    Description: Email to which notifications from automatic yum updates will be sent.  These notifications will only indicate that updates have been downloaded; the updates will still have to be installed manually.
   
 Conditions:
   IngressCidr5: !Equals [ !Ref NumIngressCidrBlocks, 5 ]
@@ -56,6 +104,7 @@ Conditions:
   IngressCidr3: !Or [ !Equals [ !Ref NumIngressCidrBlocks, 3 ], !Condition IngressCidr4]
   IngressCidr2: !Or [ !Equals [ !Ref NumIngressCidrBlocks, 2 ], !Condition IngressCidr3]
   IngressCidr1: !Or [ !Equals [ !Ref NumIngressCidrBlocks, 1 ], !Condition IngressCidr2]
+  FreeTier: !Equals [ !Ref UseFreeTier, true ]
     
 Resources:
   # Define the new public subnet
@@ -76,6 +125,112 @@ Resources:
     Properties:
       NetworkAclId: !Ref PubACL
       SubnetId: !Ref Subnet
+      
+  # Define the EC2 instance
+  AmiLookup:
+    Type: Custom::AmiLookup
+    Properties:
+      ServiceToken: !Ref AmiLookupFunctionArn
+      Region: !Ref "AWS::Region"
+      AmiLookupType: amzn-linux
+      InstanceType: !If [FreeTier, t2.micro, m4.large]
+  P4Master:
+    Type: AWS::EC2::Instance
+    Properties:
+      DisableApiTermination: false
+      EbsOptimized: false
+      ImageId: !GetAtt AmiLookup.ImageId
+      InstanceInitiatedShutdownBehavior: stop
+      InstanceType: !If [FreeTier, t2.micro, m4.large]
+      KeyName: !Ref KeyPair
+      Monitoring: true
+      NetworkInterfaces:
+      - DeviceIndex: 0
+        AssociatePublicIpAddress: true
+        DeleteOnTermination: true
+        GroupSet: [ !Ref PerforceSG ]
+        SubnetId: !Ref Subnet
+        Description: Network interface for the Perforce master server
+      SourceDestCheck: true
+      Tenancy: default
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          
+          # Add a newline to the ec2-user prompt string
+          echo
+          echo Adding a new line to the bash prompt...
+          echo PS1="\"\\n\$PS1\"">> /home/ec2-user/.bashrc
+          echo Success!
+          
+          # Adjust time zone
+          echo
+          echo Adjusting time zone to ${TimeZone}...
+          sed -ir "s|ZONE=\"UTC\"|ZONE=\"${TimeZone}\"|" /etc/sysconfig/clock
+          ln -sf /usr/share/zoneinfo/${TimeZone} /etc/localtime
+          echo Success!
+          
+          # Adjust hostname to match the provided public DNS name
+          echo
+          echo Adjusting HOSTNAME to match the provided public DNS name
+          sed -i "s|HOSTNAME=localhost.localdomain|HOSTNAME=${PublicDns}|" /etc/sysconfig/network
+          echo Success!
+          
+          # Install yum-cron to do automatic yum updates
+          # and postfix (a secure Mail Transfer Agent) and mailx to do email notifications
+          echo
+          echo Installing the yum-cron package...
+          yum install -y -q yum-cron    # -y and -q options must be separated for yum
+          echo Installing the postfix and mailx packages...
+          yum install -y -q postfix     # -y and -q options must be separated for yum
+          yum install -y -q mailx
+          echo Success!
+          
+          # Configure hourly security updates and daily complete updates
+          cat > yum-cron-conf.sed <<- EOB
+          s|update_messages = no|update_messages = yes|
+          s|download_updates = no|download_updates = yes|
+          # s|apply_updates = no|apply_updates = yes|
+          s|system_name = None|system_name = ${AWS::StackName}|
+          s|emit_via = stdio|emit_via = email|
+          s|email_from = root|email_from = yum-cron|
+          s|email_to = root|email_to = ${YumUpdateEmail}|
+          EOB
+          echo
+          echo Configuring hourly security updates...
+          sed -i "s|update_cmd = default|update_cmd = security|" /etc/yum/yum-cron-hourly.conf
+          sed -i -f yum-cron-conf.sed /etc/yum/yum-cron-hourly.conf
+          echo Configuring  daily complete updates...
+          sed -i -f yum-cron-conf.sed /etc/yum/yum-cron.conf
+          rm yum-cron-conf.sed
+          echo Success!
+          
+          # Make sure yum-cron and postfix start after all future reboots
+          echo
+          echo Registering yum-cron to start on every reboot...
+          chkconfig yum-cron on
+          echo Registering postfix to start on every reboot...
+          chkconfig postfix on
+          echo Success!
+          
+          # Clean yum and reboot to make sure everything's cool B)
+          echo
+          echo Rebooting...
+          yum clean all
+          reboot
+          echo Success!
+          
+  # Give it a public DNS hostname
+  CnameRecordSet:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZone
+      Name: !Ref PublicDns
+      Type: CNAME
+      ResourceRecords: [ !GetAtt P4Master.PublicDnsName ]
+      TTL: 60
+      Comment: String
+      # HealthCheckId: String
   
   # Network ACL for the new public subnet(s)
   PubACL:
@@ -297,7 +452,7 @@ Resources:
       PortRange: { From: 1666, To: 1666 }
       CidrBlock: !Select [ 4, !Ref IngressCidrBlocks ]
       
-  # Security Group for the bastion hosts
+  # Security Group for the Perforce master server
   PerforceSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -462,3 +617,6 @@ Outputs:
     Value: !Ref PerforceSG
     Export: { Name: P4SecurityGroup }
     Description: ID of the Perforce master server security group
+  P4MasterServer:
+    Value: !GetAtt P4Master.PublicIp
+    Description: The public IP address of the Perforce master server
