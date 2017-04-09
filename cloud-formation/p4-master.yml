@@ -248,12 +248,14 @@ Resources:
     Properties:
       VpcId: !ImportValue MainVPC
       GroupDescription: Allow NFS access from the Perforce master server.
-      SecurityGroupIngress:
-      - # NFS traffic from P4 master server
-        IpProtocol: tcp
-        FromPort: 2049
-        ToPort: 2049
-        SourceSecurityGroupId: !Ref PerforceSG
+  MountTargetNsfIngressSgRule:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref MountTargetSG
+      SourceSecurityGroupId: !Ref PerforceSG
+      IpProtocol: tcp
+      FromPort: 2049
+      ToPort: 2049
   
   # Network ACL for the new public subnet(s)
   PubACL:
@@ -480,7 +482,7 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       VpcId: !ImportValue MainVPC
-      GroupDescription: Allow P4 access from authorized computers, and SSH from bastion hosts.  Also allow HTTP for automatic updates, NTP for clock synchronization, and SMTP for update Email notifications.
+      GroupDescription: Allow Perforce traffic and boilerplate traffic for keeping the instance up-to-date.
       SecurityGroupIngress:
       - # ICMP traffic from anywhere
         IpProtocol: icmp
@@ -508,6 +510,11 @@ Resources:
         FromPort: 25
         ToPort: 25
         CidrIp: 0.0.0.0/0
+      - # NFS to shared Elastic File System
+        IpProtocol: tcp
+        FromPort: 2049
+        ToPort: 2049
+        SourceSecurityGroupId: !Ref MountTargetSG
   IngressFromSameSgRule:
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
