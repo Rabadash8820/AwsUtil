@@ -147,16 +147,16 @@ Resources:
           chmod 700 cloud-init.bash
           repoURL=https://raw.githubusercontent.com/DanwareCreations/AwsUtil/issue-15/shell-scripts
           
-          curl $repoURL/add-newline-to-shell.bash -o cloud-init.bash
+          curl -s $repoURL/add-newline-to-shell.bash -o cloud-init.bash
           bash cloud-init.bash
           
-          curl $repoURL/dns-hostname.bash -o cloud-init.bash
+          curl -s $repoURL/dns-hostname.bash -o cloud-init.bash
           bash cloud-init.bash ${PublicDns}
           
-          curl $repoURL/set-timezone.bash -o cloud-init.bash
+          curl -s $repoURL/set-timezone.bash -o cloud-init.bash
           bash cloud-init.bash ${TimeZone}
           
-          curl $repoURL/auto-yum-update.bash -o cloud-init.bash
+          curl -s $repoURL/auto-yum-update.bash -o cloud-init.bash
           bash cloud-init.bash ${AWS::StackName} ${YumUpdateEmail}
           
           rm cloud-init.bash
