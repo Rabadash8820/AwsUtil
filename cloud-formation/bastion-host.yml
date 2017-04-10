@@ -140,7 +140,7 @@ Resources:
         Fn::Base64: !Sub |
           #!/bin/bash
           echo
-          echo **********  BEGIN DANWARE CLOUD INIT  **********
+          echo ----------  BEGIN DANWARE CLOUD INIT  ----------
           echo
           
           touch cloud-init.bash
@@ -162,7 +162,7 @@ Resources:
           rm cloud-init.bash
           
           echo
-          echo **********  END DANWARE CLOUD INIT  **********
+          echo ----------  END DANWARE CLOUD INIT  ----------
           echo
           
   # Give it a public DNS hostname
