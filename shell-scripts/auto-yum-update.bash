@@ -1,7 +1,7 @@
 #!/bin/bash
 
-stackName = $1
-yumUpdateEmail = $2
+stackName=$1
+yumUpdateEmail=$2
 
 # Install yum-cron to do automatic yum updates
 # and postfix (a secure Mail Transfer Agent) and mailx to do email notifications

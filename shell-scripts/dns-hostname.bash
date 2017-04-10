@@ -1,6 +1,6 @@
 #!/bin/bash
 
-publicDns = $1
+publicDns=$1
 
 echo
 echo Adjusting HOSTNAME to match the provided public DNS name

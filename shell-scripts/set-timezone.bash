@@ -1,6 +1,6 @@
 #!/bin/bash
 
-timeZone = $1
+timeZone=$1
 
 echo
 echo Adjusting time zone to $timeZone...
