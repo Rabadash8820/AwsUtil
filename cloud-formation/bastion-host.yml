@@ -139,69 +139,31 @@ Resources:
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
-          
-          # Add a newline to the ec2-user prompt string
           echo
-          echo Adding a new line to the bash prompt...
-          echo PS1="\"\\n\$PS1\"">> /home/ec2-user/.bashrc
-          echo Success!
-          
-          # Adjust time zone
+          echo ----------  BEGIN DANWARE CLOUD INIT  ----------
           echo
-          echo Adjusting time zone to ${TimeZone}...
-          sed -ir "s|ZONE=\"UTC\"|ZONE=\"${TimeZone}\"|" /etc/sysconfig/clock
-          ln -sf /usr/share/zoneinfo/${TimeZone} /etc/localtime
-          echo Success!
           
-          # Adjust hostname to match the provided public DNS name
-          echo
-          echo Adjusting HOSTNAME to match the provided public DNS name
-          sed -i "s|HOSTNAME=localhost.localdomain|HOSTNAME=${PublicDns}|" /etc/sysconfig/network
-          echo Success!
+          touch cloud-init.bash
+          chmod 700 cloud-init.bash
+          repoURL=https://raw.githubusercontent.com/DanwareCreations/AwsUtil/issue-15/shell-scripts
           
-          # Install yum-cron to do automatic yum updates
-          # and postfix (a secure Mail Transfer Agent) and mailx to do email notifications
-          echo
-          echo Installing the yum-cron package...
-          yum install -y -q yum-cron    # -y and -q options must be separated for yum
-          echo Installing the postfix and mailx packages...
-          yum install -y -q postfix     # -y and -q options must be separated for yum
-          yum install -y -q mailx
-          echo Success!
+          curl -s $repoURL/add-newline-to-shell.bash -o cloud-init.bash
+          bash cloud-init.bash
           
-          # Configure hourly security updates and daily complete updates
-          cat > yum-cron-conf.sed <<- EOB
-          s|update_messages = no|update_messages = yes|
-          s|download_updates = no|download_updates = yes|
-          # s|apply_updates = no|apply_updates = yes|
-          s|system_name = None|system_name = ${AWS::StackName}|
-          s|emit_via = stdio|emit_via = email|
-          s|email_from = root|email_from = yum-cron|
-          s|email_to = root|email_to = ${YumUpdateEmail}|
-          EOB
-          echo
-          echo Configuring hourly security updates...
-          sed -i "s|update_cmd = default|update_cmd = security|" /etc/yum/yum-cron-hourly.conf
-          sed -i -f yum-cron-conf.sed /etc/yum/yum-cron-hourly.conf
-          echo Configuring  daily complete updates...
-          sed -i -f yum-cron-conf.sed /etc/yum/yum-cron.conf
-          rm yum-cron-conf.sed
-          echo Success!
+          curl -s $repoURL/dns-hostname.bash -o cloud-init.bash
+          bash cloud-init.bash ${PublicDns}
           
-          # Make sure yum-cron and postfix start after all future reboots
-          echo
-          echo Registering yum-cron to start on every reboot...
-          chkconfig yum-cron on
-          echo Registering postfix to start on every reboot...
-          chkconfig postfix on
-          echo Success!
+          curl -s $repoURL/set-timezone.bash -o cloud-init.bash
+          bash cloud-init.bash ${TimeZone}
           
-          # Clean yum and reboot to make sure everything's cool B)
+          curl -s $repoURL/auto-yum-update.bash -o cloud-init.bash
+          bash cloud-init.bash ${AWS::StackName} ${YumUpdateEmail}
+          
+          rm cloud-init.bash
+          
           echo
-          echo Rebooting...
-          yum clean all
-          reboot
-          echo Success!
+          echo ----------  END DANWARE CLOUD INIT  ----------
+          echo
           
   # Give it a public DNS hostname
   CnameRecordSet:

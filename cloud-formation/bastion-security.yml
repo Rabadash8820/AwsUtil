@@ -92,6 +92,16 @@ Resources:
       Protocol: 6
       CidrBlock: 0.0.0.0/0
       PortRange: { From: 80, To: 80 }
+  InHttpsAcl:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref PubACL
+      RuleNumber: 121
+      Egress: false
+      RuleAction: allow
+      Protocol: 6
+      CidrBlock: 0.0.0.0/0
+      PortRange: { From: 443, To: 443 }
   InNtpAcl:     # Both outbound and inbound ACL entries required
     Type: AWS::EC2::NetworkAclEntry
     Properties:
@@ -131,6 +141,16 @@ Resources:
       RuleAction: allow
       Protocol: 6
       PortRange: { From: 80, To: 80 }
+      CidrBlock: 0.0.0.0/0
+  OutHttpsAcl:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref PubACL
+      RuleNumber: 121
+      Egress: true
+      RuleAction: allow
+      Protocol: 6
+      PortRange: { From: 443, To: 443 }
       CidrBlock: 0.0.0.0/0
   OutNtpAcl:     # Both outbound and inbound ACL entries required
     Type: AWS::EC2::NetworkAclEntry
@@ -399,6 +419,11 @@ Resources:
         IpProtocol: tcp
         FromPort: 80
         ToPort: 80
+        CidrIp: 0.0.0.0/0
+      - # HTTPS to access cloud-init scripts in GitHub
+        IpProtocol: tcp
+        FromPort: 443
+        ToPort: 443
         CidrIp: 0.0.0.0/0
       - # NTP to synchronize UTC time with a pool of public servers (only outbound rule required)
         IpProtocol: udp
