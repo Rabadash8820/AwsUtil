@@ -119,6 +119,32 @@ Resources:
       InstanceType: !If [Harden, t2.micro, t2.nano]
   Bastion:
     Type: AWS::EC2::Instance
+    Properties:
+      DisableApiTermination: false
+      EbsOptimized: false
+      ImageId: !GetAtt AmiLookup.ImageId
+      InstanceInitiatedShutdownBehavior: stop
+      InstanceType: !If [Harden, t2.micro, t2.nano]
+      KeyName: !Ref KeyPair
+      Monitoring: true
+      NetworkInterfaces:
+      - DeviceIndex: 0
+        AssociatePublicIpAddress: true
+        DeleteOnTermination: true
+        GroupSet: [ !ImportValue BastionSecurityGroup ]
+        SubnetId: !Ref Subnet
+        Description: Network interface for a bastion host
+      SourceDestCheck: true
+      Tenancy: default
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum install -y aws-cfn-bootstrap  # not really necessary with Amazon Linux AMI, but the docs recommend it
+          /opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --region ${AWS::Region} --resource Bastion --configsets bastion
+          /opt/aws/bin/cfn-signal --exit-code $? --stack ${AWS::StackName} --region ${AWS::Region} --resource Bastion
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT5M   # Minutes, default 5
     Metadata:
       AWS::CloudFormation::Init:
         configSets:
@@ -168,7 +194,7 @@ Resources:
           commands:
             add-newline-to-bash:
               command: |
-                echo 'PS1="\n$PS1"' | tee --append /home/ec2-user/.bashrc
+                echo 'PS1="\n$PS1"' >> /home/ec2-user/.bashrc
                 echo Added a newline to bash prompt
               test: |
                 numAddedLines=$(cat /home/ec2-user/.bashrc | grep '^PS1="\\n\$PS1"$' | wc -l)
@@ -184,17 +210,19 @@ Resources:
           commands:
             dns-hostname:
               command: !Sub |
-                old=$(hostname)
-                sed 's|HOSTNAME=localhost.localdomain|HOSTNAME=${PublicDns}|' --in-place /etc/sysconfig/network
-                echo HOSTNAME changed from \"$old\" to \"${PublicDns}\"
+                newName=${PublicDns}
+                oldName=$(hostname)
+                sed "s|HOSTNAME=localhost.localdomain|HOSTNAME=$newName|" --in-place /etc/sysconfig/network
+                echo HOSTNAME changed from \"$oldName\" to \"$newName\"
                 reboot
               test: !Sub |
-                numChangedLines=$(cat /etc/sysconfig/network | grep '^HOSTNAME=${PublicDns}$' | wc -l)
+                publicDns=${PublicDns}
+                numChangedLines=$(cat /etc/sysconfig/network | grep "^HOSTNAME=$publicDns$" | wc -l)
                 if [ $numChangedLines = 0 ] ; then
-                  echo HOSTNAME will be changed to \"${PublicDns}\"
+                  echo HOSTNAME will be changed to \"$publicDns\"
                   exit 0
                 else
-                  echo HOSTNAME is already \"${PublicDns}\"
+                  echo HOSTNAME is already \"$publicDns\"
                   exit 1
                 fi
               ignoreErrors: true
@@ -202,18 +230,20 @@ Resources:
           commands:
             set-timezone:
               command: !Sub |
-                old=$(date +%Z)
-                sed --regexp-extended 's|ZONE="(\w*/?)+"|ZONE="${TimeZone}"|' --in-place /etc/sysconfig/clock
-                ln --symbolic --force /usr/share/zoneinfo/${TimeZone} /etc/localtime
-                echo Time zone changed from \"$old\" to \"${TimeZone}\"
+                newZone=${TimeZone}
+                oldZone=$(date +%Z)
+                sed --regexp-extended "s|ZONE=\"(\\w*/?)+\"|ZONE=\"$newZone\"|" --in-place /etc/sysconfig/clock
+                ln --symbolic --force /usr/share/zoneinfo/$newZone /etc/localtime
+                echo Time zone changed from \"$oldZone\" to \"$newZone\"
                 reboot
               test: !Sub |
-                numChangedLines=$(cat /etc/sysconfig/clock | grep '^ZONE="${TimeZone}"$' | wc -l)
+                timeZone=${TimeZone}
+                numChangedLines=$(cat /etc/sysconfig/clock | grep "^ZONE=\"$timeZone\"$" | wc -l)
                 if [ $numChangedLines = 0 ] ; then
-                  echo Time zone will be changed to \"${TimeZone}\"
+                  echo Time zone will be changed to \"$timeZone\"
                   exit 0
                 else
-                  echo Time zone is already \"${TimeZone}\"
+                  echo Time zone is already \"$timeZone\"
                   exit 1
                 fi
         auto-yum-update:
@@ -223,27 +253,48 @@ Resources:
               postfix: []
               mailx: []
           files:
-            /etc/danware/bastion-yum-cron.sed:
+            /etc/yum/yum-cron.conf:
               content: !Sub |
-                s|update_messages = no|update_messages = yes|
-                s|download_updates = no|download_updates = yes|
-                s|system_name = None|system_name = ${AWS::StackName}|
-                s|emit_via = stdio|emit_via = email|
-                s|email_from = root|email_from = yum-cron|
-                s|email_to = root|email_to = ${YumUpdateEmail}|
+                [commands]
+                update_cmd = default
+                update_messages = yes
+                download_updates = yes
+                apply_updates = no
+                random_sleep = 120
+
+                [emitters]
+                system_name = None
+                emit_via = email
+                output_width = 80
+
+                [email]
+                email_from = yum-cron@localhost
+                email_to = ${YumUpdateEmail}
+                email_host = localhost
               mode: "000400"
               owner: root
               group: root
-          commands:
-            1_security-updates:
-              command: |
-                sed --file /etc/danware/bastion-yum-cron.sed --in-place /etc/yum/yum-cron-hourly.conf
-                sed 's|update_cmd = default|update_cmd = security|' --in-place /etc/yum/yum-cron-hourly.conf
-                echo Hourly security updates configured
-            2_complete-updates:
-              command: |
-                sed --file /etc/danware/bastion-yum-cron.sed --in-place /etc/yum/yum-cron.conf
-                echo Daily complete updates configured
+            /etc/yum/yum-cron-hourly.conf:
+              content: !Sub |
+                [commands]
+                update_cmd = security
+                update_messages = yes
+                download_updates = yes
+                apply_updates = no
+                random_sleep = 120
+
+                [emitters]
+                system_name = None
+                emit_via = email
+                output_width = 80
+
+                [email]
+                email_from = yum-cron@localhost
+                email_to = ${YumUpdateEmail}
+                email_host = localhost
+              mode: "000400"
+              owner: root
+              group: root
           services:
             sysvinit:
               yum-cron:
@@ -260,32 +311,6 @@ Resources:
                 ensureRunning: true
                 packages: 
                   yum: [ postfix ]
-    CreationPolicy:
-      ResourceSignal:
-        Timeout: PT5M   # Default of 5 minutes
-    Properties:
-      DisableApiTermination: false
-      EbsOptimized: false
-      ImageId: !GetAtt AmiLookup.ImageId
-      InstanceInitiatedShutdownBehavior: stop
-      InstanceType: !If [Harden, t2.micro, t2.nano]
-      KeyName: !Ref KeyPair
-      Monitoring: true
-      NetworkInterfaces:
-      - DeviceIndex: 0
-        AssociatePublicIpAddress: true
-        DeleteOnTermination: true
-        GroupSet: [ !ImportValue BastionSecurityGroup ]
-        SubnetId: !Ref Subnet
-        Description: Network interface for a bastion host
-      SourceDestCheck: true
-      Tenancy: default
-      UserData:
-        Fn::Base64: !Sub |
-          #!/bin/bash
-          yum install -y aws-cfn-bootstrap  # not really necessary with Amazon Linux AMI, but the docs recommend it
-          /opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --region ${AWS::Region} --resource Bastion --configsets bastion
-          /opt/aws/bin/cfn-signal --exit-code $? --stack ${AWS::StackName} --region ${AWS::Region} --resource Bastion
           
   # Give it a public DNS hostname
   CnameRecordSet:
