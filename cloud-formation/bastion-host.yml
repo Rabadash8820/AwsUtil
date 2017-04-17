@@ -68,7 +68,7 @@ Parameters:
     Description: ARN of a Lambda function that can return the latest AMIs for this region.  Replace "REGION" and "ACCOUNT_ID" with appropriate values, and the function name if applicable.
   HardenOS:
     Type: String
-    Default: true
+    Default: false
     AllowedValues: [ true, false]
     Description: Hardened bastion hosts will use the latest CIS AMI to improve security.  Unhardened hosts will use the latest Amazon Linux AMI.
   KeyPair:
