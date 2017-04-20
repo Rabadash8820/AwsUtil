@@ -73,7 +73,7 @@ Parameters:
     Description: Hardened bastion hosts will use the latest CIS AMI to improve security.  Unhardened hosts will use the latest Amazon Linux AMI.
   KeyPair:
     Type: AWS::EC2::KeyPair::KeyName
-    Description: The EC2 key pair needed to connect to all new bastion hosts.
+    Description: The EC2 key pair needed to connect to the new bastion host.
   TimeZone:
     Type: String
     Default: UTC
@@ -139,31 +139,178 @@ Resources:
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
-          echo
-          echo ----------  BEGIN DANWARE CLOUD INIT  ----------
-          echo
-          
-          touch cloud-init.bash
-          chmod 700 cloud-init.bash
-          repoURL=https://raw.githubusercontent.com/DanwareCreations/AwsUtil/issue-15/shell-scripts
-          
-          curl -s $repoURL/add-newline-to-shell.bash -o cloud-init.bash
-          bash cloud-init.bash
-          
-          curl -s $repoURL/dns-hostname.bash -o cloud-init.bash
-          bash cloud-init.bash ${PublicDns}
-          
-          curl -s $repoURL/set-timezone.bash -o cloud-init.bash
-          bash cloud-init.bash ${TimeZone}
-          
-          curl -s $repoURL/auto-yum-update.bash -o cloud-init.bash
-          bash cloud-init.bash ${AWS::StackName} ${YumUpdateEmail}
-          
-          rm cloud-init.bash
-          
-          echo
-          echo ----------  END DANWARE CLOUD INIT  ----------
-          echo
+          yum install -y aws-cfn-bootstrap  # not really necessary with Amazon Linux AMI, but the docs recommend it
+          /opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --region ${AWS::Region} --resource Bastion --configsets bastion
+          /opt/aws/bin/cfn-signal --exit-code $? --stack ${AWS::StackName} --region ${AWS::Region} --resource Bastion
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT5M   # Minutes, default 5
+    Metadata:
+      AWS::CloudFormation::Init:
+        configSets:
+          bastion:
+          - cfn-hup
+          - add-newline-to-bash
+          - auto-yum-update
+          - dns-hostname    # manually calls reboot, so must come after other config sets
+          - set-timezone    # manually calls reboot, so must come after other config sets
+        cfn-hup:
+          packages:
+            yum:
+              aws-cfn-bootstrap: []
+          files:
+            /etc/cfn/cfn-hup.conf:
+              # interval in minutes, default 15 (comments not allowed in content)
+              content: !Sub |
+                [main]
+                stack=${AWS::StackId}
+                region=${AWS::Region}
+                interval=10
+                verbose=true
+              mode: "000400"
+              owner: root
+              group: root
+            /etc/cfn/hooks.conf:
+              content: !Sub |
+                [reset-on-update]
+                triggers=post.update
+                path=Resources.Bastion.Metadata.AWS::CloudFormation::Init
+                action=/opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --region ${AWS::Region} --resource Bastion --configsets bastion
+                runas=root
+              mode: "000400"
+              owner: root
+              group: root
+          services:
+            sysvinit:
+              cfn-hup:
+                enabled: true
+                ensureRunning: true
+                files:
+                - /etc/cfn/cfn-hup.conf
+                - /etc/cfn/hooks.conf
+                packages: 
+                  yum: [ aws-cfn-bootstrap ]
+        add-newline-to-bash:
+          commands:
+            add-newline-to-bash:
+              command: |
+                echo 'PS1="\n$PS1"' >> /home/ec2-user/.bashrc
+                echo Added a newline to bash prompt
+              test: |
+                numAddedLines=$(cat /home/ec2-user/.bashrc | grep '^PS1="\\n\$PS1"$' | wc -l)
+                if [ $numAddedLines = 0 ] ; then
+                  echo Newline will be added to bash prompt
+                  exit 0
+                else
+                  echo Newline already added to bash prompt
+                  exit 1
+                fi
+              ignoreErrors: true
+        dns-hostname:
+          commands:
+            dns-hostname:
+              command: !Sub |
+                newName=${PublicDns}
+                oldName=$(hostname)
+                sed "s|HOSTNAME=localhost.localdomain|HOSTNAME=$newName|" --in-place /etc/sysconfig/network
+                echo HOSTNAME changed from \"$oldName\" to \"$newName\"
+                reboot
+              test: !Sub |
+                publicDns=${PublicDns}
+                numChangedLines=$(cat /etc/sysconfig/network | grep "^HOSTNAME=$publicDns$" | wc -l)
+                if [ $numChangedLines = 0 ] ; then
+                  echo HOSTNAME will be changed to \"$publicDns\"
+                  exit 0
+                else
+                  echo HOSTNAME is already \"$publicDns\"
+                  exit 1
+                fi
+              ignoreErrors: true
+        set-timezone:
+          commands:
+            set-timezone:
+              command: !Sub |
+                newZone=${TimeZone}
+                oldZone=$(date +%Z)
+                sed --regexp-extended "s|ZONE=\"(\\w*/?)+\"|ZONE=\"$newZone\"|" --in-place /etc/sysconfig/clock
+                ln --symbolic --force /usr/share/zoneinfo/$newZone /etc/localtime
+                echo Time zone changed from \"$oldZone\" to \"$newZone\"
+                reboot
+              test: !Sub |
+                timeZone=${TimeZone}
+                numChangedLines=$(cat /etc/sysconfig/clock | grep "^ZONE=\"$timeZone\"$" | wc -l)
+                if [ $numChangedLines = 0 ] ; then
+                  echo Time zone will be changed to \"$timeZone\"
+                  exit 0
+                else
+                  echo Time zone is already \"$timeZone\"
+                  exit 1
+                fi
+        auto-yum-update:
+          packages:
+            yum:
+              yum-cron: []
+              postfix: []
+              mailx: []
+          files:
+            /etc/yum/yum-cron.conf:
+              content: !Sub |
+                [commands]
+                update_cmd = default
+                update_messages = yes
+                download_updates = yes
+                apply_updates = no
+                random_sleep = 120
+
+                [emitters]
+                system_name = None
+                emit_via = email
+                output_width = 80
+
+                [email]
+                email_from = yum-cron@localhost
+                email_to = ${YumUpdateEmail}
+                email_host = localhost
+              mode: "000400"
+              owner: root
+              group: root
+            /etc/yum/yum-cron-hourly.conf:
+              content: !Sub |
+                [commands]
+                update_cmd = security
+                update_messages = yes
+                download_updates = yes
+                apply_updates = no
+                random_sleep = 120
+
+                [emitters]
+                system_name = None
+                emit_via = email
+                output_width = 80
+
+                [email]
+                email_from = yum-cron@localhost
+                email_to = ${YumUpdateEmail}
+                email_host = localhost
+              mode: "000400"
+              owner: root
+              group: root
+          services:
+            sysvinit:
+              yum-cron:
+                enabled: true
+                ensureRunning: true
+                files:
+                - /etc/yum/yum-cron.conf
+                - /etc/yum/yum-cron-hourly.conf
+                - /etc/yum/yum-cron-security.conf
+                packages: 
+                  yum: [ yum-cron ]
+              postfix:
+                enabled: true
+                ensureRunning: true
+                packages: 
+                  yum: [ postfix ]
           
   # Give it a public DNS hostname
   CnameRecordSet:
