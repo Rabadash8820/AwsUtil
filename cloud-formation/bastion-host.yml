@@ -151,9 +151,9 @@ Resources:
           bastion:
           - cfn-hup
           - add-newline-to-bash
-          - dns-hostname
-          - set-timezone
           - auto-yum-update
+          - dns-hostname    # manually calls reboot, so must come after other config sets
+          - set-timezone    # manually calls reboot, so must come after other config sets
         cfn-hup:
           packages:
             yum:
