@@ -68,20 +68,20 @@ Resources:
     Condition: CreateFlowLog
     Properties:
       DeliverLogsPermissionArn : !GetAtt FlowLogRole.Arn
-      LogGroupName : !Join [ "-", [ !Ref "AWS::StackName", vpc-flow-logs ] ]
+      LogGroupName : !Sub ${AWS::StackName}-vpc-flow-logs
       ResourceId : !Ref MainVPC
       ResourceType : VPC
       TrafficType : !Ref FlowLogTrafficType
   FlowLogGroup:
     Type: AWS::Logs::LogGroup
     Properties: 
-      LogGroupName: !Join [ "-", [ !Ref "AWS::StackName", vpc-flow-logs ] ]
+      LogGroupName: !Sub ${AWS::StackName}-vpc-flow-logs
       RetentionInDays: 60
   FlowLogRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Join [ "-", [ !Ref "AWS::StackName", vpc-flow-log-role ] ]
-      Path: !Join [ "", [ "/flow-log-roles/", !Ref "AWS::StackName", "/" ] ]
+      RoleName: !Sub ${AWS::StackName}-vpc-flow-log-role
+      Path: !Sub /flow-log-roles/${AWS::StackName}/
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement: 
