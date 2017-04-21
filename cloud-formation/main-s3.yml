@@ -37,7 +37,7 @@ Resources:
     Type: AWS::S3::Bucket
     Properties: 
       AccessControl: LogDeliveryWrite  # Required by CloudFormation apparently?
-      BucketName: !Join [ "-", [ !Ref OrganizationPrefix, !Ref "AWS::Region", logs ] ]
+      BucketName: !Sub ${OrganizationPrefix}-${AWS::Region}-logs
       LifecycleConfiguration:
         Rules:
         -
