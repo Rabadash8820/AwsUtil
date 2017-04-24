@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: 2010-09-09
 
-Description: A WordPress instance in its own public subnet and automatically updated.
+Description: A WordPress server in its own public subnet and automatically updated.
 
 Metadata:
   AWS::CloudFormation::Interface:
@@ -14,6 +14,16 @@ Metadata:
         - SshCidrBlocks
         - AzName
         - SubnetCidrBlock
+      -
+        Label:
+          default: WordPress Server Instance Configuration
+        Parameters:
+        - PublicDns
+        - HostedZone
+        - AmiLookupFunctionArn
+        - KeyPair
+        - TimeZone
+        - YumUpdateEmail
 
 Parameters:
   NetworkStackName:
@@ -41,10 +51,41 @@ Parameters:
     Description: The Availability Zone in which to create a public subnet for the new WordPress server.
   SubnetCidrBlock:
     Type: String
-    Default: 10.0.128.0/28
+    Default: 10.0.130.0/28
     AllowedPattern: ^\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3}(\/\d{1,2})?$
     Description: The CIDR block for the new public subnet in the provided Availability Zone.
     ConstraintDescription: must be a valid CIDR block (e.g., 52.20.114.0/24)
+    
+  PublicDns:
+    Type: String
+    Default: www.mycompany.com
+    MaxLength: 255
+    AllowedPattern: ^([0-9A-Za-z]+[._-]?)+[0-9A-Za-z]+$
+    ConstraintDescription: must be a valid domain name, i.e., <= 255 alphanumeric characters, periods, hyphens, and underscores.
+    Description: The public DNS name that will be assigned to the new WordPress server.  It must be a subdomain of a hosted zone that has already been created in AWS.
+  HostedZone:
+    Type: AWS::Route53::HostedZone::Id
+    Description: The hosted zone in which the new WordPress server's CNAME record will be stored.
+  AmiLookupFunctionArn:
+    Type: String
+    Default: arn:aws:lambda:REGION:ACCOUNT_ID:function:RegionLookup
+    Description: ARN of a Lambda function that can return the latest AMIs for this region.  Replace "REGION" and "ACCOUNT_ID" with appropriate values, and the function name if applicable.
+  KeyPair:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: The EC2 key pair needed to connect to the new WordPress server.
+  TimeZone:
+    Type: String
+    Default: UTC
+    Description: Name of a time zone data file in /usr/share/zoneinfo (for example "America/New_York").  Used to set the time zone for the WordPress server.
+  YumUpdateEmail:
+    Type: String
+    Default: admin@mycompany.com
+    MaxLength: 255
+    AllowedPattern: ^([0-9A-Za-z]+[._-]?)+[0-9A-Za-z]+@([0-9A-Za-z]+[._-]?)+\.[0-9A-Za-z]+$
+    ConstraintDescription: must be a valid Email address, like "frodo@theshire.com".
+    Description: Email to which notifications from automatic yum updates will be sent.  These notifications will only indicate that updates have been downloaded; the updates will still have to be installed manually.
+  
+  
   
 Conditions:
   SshCidr5: !Equals [ !Ref NumSshCidrBlocks, 5 ]
@@ -344,3 +385,224 @@ Resources:
     Properties:
       NetworkAclId: !Ref PubACL
       SubnetId: !Ref Subnet
+      
+  # Define the EC2 instance
+  AmiLookup:
+    Type: Custom::AmiLookup
+    Properties:
+      ServiceToken: !Ref AmiLookupFunctionArn
+      Region: !Ref "AWS::Region"
+      AmiLookupType: amzn-linux
+      InstanceType: t2.micro
+  WordPress:
+    Type: AWS::EC2::Instance
+    Properties:
+      DisableApiTermination: false
+      EbsOptimized: false
+      ImageId: !GetAtt AmiLookup.ImageId
+      InstanceInitiatedShutdownBehavior: stop
+      InstanceType: t2.micro
+      KeyName: !Ref KeyPair
+      Monitoring: true
+      NetworkInterfaces:
+      - DeviceIndex: 0
+        AssociatePublicIpAddress: true
+        DeleteOnTermination: true
+        GroupSet: [ !Ref WordPressSG ]
+        SubnetId: !Ref Subnet
+        Description: Network interface for a WordPress server
+      SourceDestCheck: true
+      Tenancy: default
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum install -y aws-cfn-bootstrap  # not really necessary with Amazon Linux AMI, but the docs recommend it
+          /opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --region ${AWS::Region} --resource WordPress --configsets wp
+          /opt/aws/bin/cfn-signal --exit-code $? --stack ${AWS::StackName} --region ${AWS::Region} --resource WordPress
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT5M   # Minutes, default 5
+    Metadata:
+      AWS::CloudFormation::Init:
+        configSets:
+          wp:
+          - cfn-hup
+          - add-newline-to-bash
+          - auto-yum-update
+          - dns-hostname    # manually calls reboot, so must come after other config sets
+          - set-timezone    # manually calls reboot, so must come after other config sets
+        cfn-hup:
+          packages:
+            yum:
+              aws-cfn-bootstrap: []
+          files:
+            /etc/cfn/cfn-hup.conf:
+              # interval in minutes, default 15 (comments not allowed in content)
+              content: !Sub |
+                [main]
+                stack=${AWS::StackId}
+                region=${AWS::Region}
+                interval=10
+                verbose=true
+              mode: "000400"
+              owner: root
+              group: root
+            /etc/cfn/hooks.conf:
+              content: !Sub |
+                [reset-on-update]
+                triggers=post.update
+                path=Resources.WordPress.Metadata.AWS::CloudFormation::Init
+                action=/opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --region ${AWS::Region} --resource WordPress --configsets wp
+                runas=root
+              mode: "000400"
+              owner: root
+              group: root
+          services:
+            sysvinit:
+              cfn-hup:
+                enabled: true
+                ensureRunning: true
+                files:
+                - /etc/cfn/cfn-hup.conf
+                - /etc/cfn/hooks.conf
+                packages: 
+                  yum: [ aws-cfn-bootstrap ]
+        add-newline-to-bash:
+          commands:
+            add-newline-to-bash:
+              command: |
+                echo 'PS1="\n$PS1"' >> /home/ec2-user/.bashrc
+                echo Added a newline to bash prompt
+              test: |
+                numAddedLines=$(cat /home/ec2-user/.bashrc | grep '^PS1="\\n\$PS1"$' | wc -l)
+                if [ $numAddedLines = 0 ] ; then
+                  echo Newline will be added to bash prompt
+                  exit 0
+                else
+                  echo Newline already added to bash prompt
+                  exit 1
+                fi
+              ignoreErrors: true
+        dns-hostname:
+          commands:
+            dns-hostname:
+              command: !Sub |
+                newName=${PublicDns}
+                oldName=$(hostname)
+                sed "s|HOSTNAME=localhost.localdomain|HOSTNAME=$newName|" --in-place /etc/sysconfig/network
+                echo HOSTNAME changed from \"$oldName\" to \"$newName\"
+                reboot
+              test: !Sub |
+                publicDns=${PublicDns}
+                numChangedLines=$(cat /etc/sysconfig/network | grep "^HOSTNAME=$publicDns$" | wc -l)
+                if [ $numChangedLines = 0 ] ; then
+                  echo HOSTNAME will be changed to \"$publicDns\"
+                  exit 0
+                else
+                  echo HOSTNAME is already \"$publicDns\"
+                  exit 1
+                fi
+              ignoreErrors: true
+        set-timezone:
+          commands:
+            set-timezone:
+              command: !Sub |
+                newZone=${TimeZone}
+                oldZone=$(date +%Z)
+                sed --regexp-extended "s|ZONE=\"(\\w*/?)+\"|ZONE=\"$newZone\"|" --in-place /etc/sysconfig/clock
+                ln --symbolic --force /usr/share/zoneinfo/$newZone /etc/localtime
+                echo Time zone changed from \"$oldZone\" to \"$newZone\"
+                reboot
+              test: !Sub |
+                timeZone=${TimeZone}
+                numChangedLines=$(cat /etc/sysconfig/clock | grep "^ZONE=\"$timeZone\"$" | wc -l)
+                if [ $numChangedLines = 0 ] ; then
+                  echo Time zone will be changed to \"$timeZone\"
+                  exit 0
+                else
+                  echo Time zone is already \"$timeZone\"
+                  exit 1
+                fi
+        auto-yum-update:
+          packages:
+            yum:
+              yum-cron: []
+              postfix: []
+              mailx: []
+          files:
+            /etc/yum/yum-cron.conf:
+              content: !Sub |
+                [commands]
+                update_cmd = default
+                update_messages = yes
+                download_updates = yes
+                apply_updates = no
+                random_sleep = 120
+
+                [emitters]
+                system_name = None
+                emit_via = email
+                output_width = 80
+
+                [email]
+                email_from = yum-cron@localhost
+                email_to = ${YumUpdateEmail}
+                email_host = localhost
+              mode: "000400"
+              owner: root
+              group: root
+            /etc/yum/yum-cron-hourly.conf:
+              content: !Sub |
+                [commands]
+                update_cmd = security
+                update_messages = yes
+                download_updates = yes
+                apply_updates = no
+                random_sleep = 120
+
+                [emitters]
+                system_name = None
+                emit_via = email
+                output_width = 80
+
+                [email]
+                email_from = yum-cron@localhost
+                email_to = ${YumUpdateEmail}
+                email_host = localhost
+              mode: "000400"
+              owner: root
+              group: root
+          services:
+            sysvinit:
+              yum-cron:
+                enabled: true
+                ensureRunning: true
+                files:
+                - /etc/yum/yum-cron.conf
+                - /etc/yum/yum-cron-hourly.conf
+                - /etc/yum/yum-cron-security.conf
+                packages: 
+                  yum: [ yum-cron ]
+              postfix:
+                enabled: true
+                ensureRunning: true
+                packages: 
+                  yum: [ postfix ]
+          
+  # Give it a public DNS hostname
+  CnameRecordSet:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZone
+      Name: !Ref PublicDns
+      Type: CNAME
+      ResourceRecords: [ !GetAtt WordPress.PublicDnsName ]
+      TTL: 60
+      Comment: String
+      # HealthCheckId: String
+          
+      
+Outputs:
+  WordPress:
+    Value: !GetAtt WordPress.PublicIp
+    Description: The public IP address of the new WordPress server
