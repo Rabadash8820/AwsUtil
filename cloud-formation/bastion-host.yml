@@ -206,46 +206,6 @@ Resources:
                   exit 1
                 fi
               ignoreErrors: true
-        dns-hostname:
-          commands:
-            dns-hostname:
-              command: !Sub |
-                newName=${PublicDns}
-                oldName=$(hostname)
-                sed "s|HOSTNAME=localhost.localdomain|HOSTNAME=$newName|" --in-place /etc/sysconfig/network
-                echo HOSTNAME changed from \"$oldName\" to \"$newName\"
-                reboot
-              test: !Sub |
-                publicDns=${PublicDns}
-                numChangedLines=$(cat /etc/sysconfig/network | grep "^HOSTNAME=$publicDns$" | wc -l)
-                if [ $numChangedLines = 0 ] ; then
-                  echo HOSTNAME will be changed to \"$publicDns\"
-                  exit 0
-                else
-                  echo HOSTNAME is already \"$publicDns\"
-                  exit 1
-                fi
-              ignoreErrors: true
-        set-timezone:
-          commands:
-            set-timezone:
-              command: !Sub |
-                newZone=${TimeZone}
-                oldZone=$(date +%Z)
-                sed --regexp-extended "s|ZONE=\"(\\w*/?)+\"|ZONE=\"$newZone\"|" --in-place /etc/sysconfig/clock
-                ln --symbolic --force /usr/share/zoneinfo/$newZone /etc/localtime
-                echo Time zone changed from \"$oldZone\" to \"$newZone\"
-                reboot
-              test: !Sub |
-                timeZone=${TimeZone}
-                numChangedLines=$(cat /etc/sysconfig/clock | grep "^ZONE=\"$timeZone\"$" | wc -l)
-                if [ $numChangedLines = 0 ] ; then
-                  echo Time zone will be changed to \"$timeZone\"
-                  exit 0
-                else
-                  echo Time zone is already \"$timeZone\"
-                  exit 1
-                fi
         auto-yum-update:
           packages:
             yum:
@@ -311,6 +271,46 @@ Resources:
                 ensureRunning: true
                 packages: 
                   yum: [ postfix ]
+        dns-hostname:
+          commands:
+            dns-hostname:
+              command: !Sub |
+                newName=${PublicDns}
+                oldName=$(hostname)
+                sed "s|HOSTNAME=localhost.localdomain|HOSTNAME=$newName|" --in-place /etc/sysconfig/network
+                echo HOSTNAME changed from \"$oldName\" to \"$newName\"
+                reboot
+              test: !Sub |
+                publicDns=${PublicDns}
+                numChangedLines=$(cat /etc/sysconfig/network | grep "^HOSTNAME=$publicDns$" | wc -l)
+                if [ $numChangedLines = 0 ] ; then
+                  echo HOSTNAME will be changed to \"$publicDns\"
+                  exit 0
+                else
+                  echo HOSTNAME is already \"$publicDns\"
+                  exit 1
+                fi
+              ignoreErrors: true
+        set-timezone:
+          commands:
+            set-timezone:
+              command: !Sub |
+                newZone=${TimeZone}
+                oldZone=$(date +%Z)
+                sed --regexp-extended "s|ZONE=\"(\\w*/?)+\"|ZONE=\"$newZone\"|" --in-place /etc/sysconfig/clock
+                ln --symbolic --force /usr/share/zoneinfo/$newZone /etc/localtime
+                echo Time zone changed from \"$oldZone\" to \"$newZone\"
+                reboot
+              test: !Sub |
+                timeZone=${TimeZone}
+                numChangedLines=$(cat /etc/sysconfig/clock | grep "^ZONE=\"$timeZone\"$" | wc -l)
+                if [ $numChangedLines = 0 ] ; then
+                  echo Time zone will be changed to \"$timeZone\"
+                  exit 0
+                else
+                  echo Time zone is already \"$timeZone\"
+                  exit 1
+                fi
           
   # Give it a public DNS hostname
   CnameRecordSet:
