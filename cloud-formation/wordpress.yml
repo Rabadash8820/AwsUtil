@@ -589,9 +589,15 @@ Resources:
                 packages: 
                   yum: [ postfix ]
           
-  # Give it a public DNS hostname
+  # Set up DNS for the server
+  ElasticIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      InstanceId: !Ref WordPress
+      Domain: vpc
   CnameRecordSet:
     Type: AWS::Route53::RecordSet
+    DependsOn: ElasticIP
     Properties:
       HostedZoneId: !Ref HostedZone
       Name: !Ref PublicDns
