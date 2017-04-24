@@ -339,7 +339,7 @@ Resources:
       Egress: true
       RuleAction: allow
       Protocol: 6
-      PortRange: { From: 3389, To: 3389 }
+      PortRange: { From: 22, To: 22 }
       CidrBlock: !Select [ 4, !Ref EgressCidrBlocks ]
   OutRdpAcl1:
     Condition: EgressCidr1
