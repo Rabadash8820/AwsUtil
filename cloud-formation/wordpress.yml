@@ -281,6 +281,16 @@ Resources:
         FromPort: -1
         ToPort: -1
         CidrIp: 0.0.0.0/0
+      - # HTTP for internet access
+        IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: 0.0.0.0/0
+      - # HTTPS for internet access
+        IpProtocol: tcp
+        FromPort: 443
+        ToPort: 443
+        CidrIp: 0.0.0.0/0
       SecurityGroupEgress:
       - # ICMP traffic to anywhere
         IpProtocol: icmp
@@ -292,7 +302,7 @@ Resources:
         FromPort: 80
         ToPort: 80
         CidrIp: 0.0.0.0/0
-      - # HTTPS to access cloud-init scripts in GitHub
+      - # HTTPS for cfn-init to describe resources in CloudFormation stacks
         IpProtocol: tcp
         FromPort: 443
         ToPort: 443
@@ -429,6 +439,7 @@ Resources:
           - cfn-hup
           - add-newline-to-bash
           - auto-yum-update
+          - lamp
           - dns-hostname    # manually calls reboot, so must come after other config sets
           - set-timezone    # manually calls reboot, so must come after other config sets
         cfn-hup:
@@ -548,6 +559,27 @@ Resources:
                 ensureRunning: true
                 packages: 
                   yum: [ postfix ]
+        lamp:
+          packages:
+            yum:
+              httpd24: []
+              php70: []
+              mysql56-server: []
+              php70-mysqlnd: []
+          services:
+            sysvinit:
+              httpd:
+                enabled: true
+                ensureRunning: true
+                packages:
+                  yum: [ httpd24 ]
+              mysqld:
+                enabled: true
+                ensureRunning: true
+                packages:
+                  yum:
+                  - mysql56-server
+                  - php70-mysqlnd
         dns-hostname:
           commands:
             dns-hostname:
