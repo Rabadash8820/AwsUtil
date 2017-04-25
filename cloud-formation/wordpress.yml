@@ -453,7 +453,7 @@ Resources:
                 [main]
                 stack=${AWS::StackId}
                 region=${AWS::Region}
-                interval=15
+                interval=5
                 verbose=true
               mode: "000400"
               owner: root
@@ -566,13 +566,16 @@ Resources:
               php70: []
               mysql56-server: []
               php70-mysqlnd: []
+              mod24_ssl: []
           services:
             sysvinit:
               httpd:
                 enabled: true
                 ensureRunning: true
                 packages:
-                  yum: [ httpd24 ]
+                  yum:
+                  - httpd24
+                  - mod24_ssl
               mysqld:
                 enabled: true
                 ensureRunning: true
