@@ -160,12 +160,12 @@ Resources:
               aws-cfn-bootstrap: []
           files:
             /etc/cfn/cfn-hup.conf:
-              # interval in minutes, default 15 (comments not allowed in content)
+              # interval in minutes, default 15 (comments not allowed in cfn-hup.conf file)
               content: !Sub |
                 [main]
                 stack=${AWS::StackId}
                 region=${AWS::Region}
-                interval=10
+                interval=15
                 verbose=true
               mode: "000400"
               owner: root
