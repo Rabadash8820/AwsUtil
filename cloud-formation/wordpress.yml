@@ -512,7 +512,6 @@ Resources:
               content: !Sub |
                 s|update_messages = no|update_messages = yes|
                 s|download_updates = no|download_updates = yes|
-                s|system_name = None|system_name = ${AWS::StackName}|
                 s|emit_via = stdio|emit_via = email|
                 s|email_from = root|email_from = yum-cron|
                 s|email_to = root|email_to = ${YumUpdateEmail}|
