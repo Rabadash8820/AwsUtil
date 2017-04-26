@@ -420,7 +420,7 @@ Resources:
         FromPort: 80
         ToPort: 80
         CidrIp: 0.0.0.0/0
-      - # HTTPS to access cloud-init scripts in GitHub
+      - # HTTPS for cfn-init to describe resources in CloudFormation stacks
         IpProtocol: tcp
         FromPort: 443
         ToPort: 443
