@@ -1,0 +1,14 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: An Elastic IP address for use with EC2 Instances, Elastic Load Balancers, etc.
+
+Resources:
+  ElasticIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      
+Outputs:
+  ElasticIP:
+    Value: !Ref ElasticIP
+    Description: The public IP address of the new WordPress server
