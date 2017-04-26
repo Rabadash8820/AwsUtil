@@ -414,7 +414,7 @@ Resources:
   WordPress:
     Type: AWS::EC2::Instance
     Properties:
-      DisableApiTermination: false
+      DisableApiTermination: true
       EbsOptimized: false
       ImageId: !GetAtt AmiLookup.ImageId
       InstanceInitiatedShutdownBehavior: stop
