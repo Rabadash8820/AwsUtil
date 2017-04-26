@@ -19,7 +19,7 @@ Metadata:
         Parameters:
         - PublicDns
         - HostedZone
-        - AmiLookupFunction
+        - AmiLookupFunctionArn
         - HardenOS
         - KeyPair
         - TimeZone
