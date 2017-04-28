@@ -2,9 +2,9 @@
 
 ## About
 
-These scripts are intended to be general-purpose, for organizations other than Danware to quickly allocate CloudFormation stacks, EC2 instances with cloud-init scripts, database hosts with SQL schemas, etc.
+These scripts are intended to be general-purpose, for organizations other than Danware to quickly allocate CloudFormation stacks, EC2 instances with `cfn-init` actions, database hosts with SQL schemas, etc.
 
-To check the output of one any cloud-init scripts, view `/var/log/cloud-init-output.log` once the instance has started and passed all status checks.  Initiation of automatic updates via yum-cron are logged in `/var/log/cron` and actual completed updates are logged in `/var/log/yum.log`.
+To check the output of `cloud-init` user data scripts, view `/var/log/cloud-init-output.log` once the instance has started and passed all status checks.  Initiation of automatic updates via `yum-cron` are logged in `/var/log/cron` and actual completed updates are logged in `/var/log/yum.log`.  Initiation of describing an instance's `CloudFormation::Init` metadata via `cfn-hup` is logged in `/var/log/cfn-hup.log`, and the `cfn-init` command that parses and executes this metadata is logged in `/var/log/cfn-init.log`.
 
 ## CloudFormation Stack Creation Order
 
