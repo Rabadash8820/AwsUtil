@@ -76,7 +76,7 @@ Parameters:
   AmiLookupFunctionArn:
     Type: String
     Default: arn:aws:lambda:REGION:ACCOUNT_ID:function:RegionLookup
-    Description: ARN of a Lambda function that can return the latest AMIs for this region.  Replace "REGION" and "ACCOUNT_ID" with appropriate values, and the function name if applicable.
+    Description: ARN of a Lambda function that can return the latest AMIs for this region.  Replace "REGION" and "ACCOUNT_ID" with appropriate values, and the function name, if applicable.
   KeyPair:
     Type: AWS::EC2::KeyPair::KeyName
     Description: The EC2 key pair needed to connect to the new WordPress server.
