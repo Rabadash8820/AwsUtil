@@ -59,9 +59,9 @@ Parameters:
     ConstraintDescription: must be a comma-delimited list of valid CIDR blocks (e.g., 10.20.114.23/16), with no comma after the last item.
   BastionCidrBlock:
     Type: String
-    Default: 0.0.0.0/0
+    Default: 10.0.128.0/24
     AllowedPattern: ^\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3}(\/\d{1,2})?$
-    Description: This the CIDR block from which SSH requests will be accepted.  This should ONLY be the CIDR block containing your bastion host instances.  Allowing SSH from ANY address (0.0.0.0/0) is strongly discouraged.
+    Description: This is the CIDR block from which SSH requests will be accepted.  You should only enter the CIDR block containing your bastion hosts.  Allowing SSH from ANY address (0.0.0.0/0) is strongly discouraged.
     ConstraintDescription: must be a valid CIDR block (e.g., 10.5.114.23/16).
     
   PublicDns:
