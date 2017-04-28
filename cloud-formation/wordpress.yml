@@ -10,10 +10,9 @@ Metadata:
           default: Subnet Configuration
         Parameters:
         - NetworkStackName
-        - NumSshCidrBlocks
-        - SshCidrBlocks
         - AzName
         - SubnetCidrBlock
+        - BastionCidrBlock
       -
         Label:
           default: WordPress Server Instance Configuration
@@ -36,18 +35,6 @@ Parameters:
     AllowedPattern: ^[a-zA-Z][-a-zA-Z0-9]*$
     Description: Name of an active CloudFormation stack that contains the networking resources needed to create a WordPress server in its own public subnet.
     ConstraintDescription: must contain only alphanumeric characters and/or hyphens, and start with a letter
-  NumSshCidrBlocks:
-    Type: Number
-    Default: 1
-    MinValue: 1
-    MaxValue: 5
-    Description: The number of CIDR blocks from which SSH requests into the WordPress server will be accepted. The actual CIDR blocks must be entered in the SshCidrBlocks parameter.  Allowing SSH from ANY address (0.0.0.0/0) is strongly discouraged.
-    ConstraintDescription: must be an integer between 1 and 5 (inclusive)
-  SshCidrBlocks:
-    Type: CommaDelimitedList
-    Default: 10.0.128.0/24
-    Description: An array of CIDR blocks that are separated by commas.  These are the actual CIDR blocks from which SSH requests will be accepted.  The total number of CIDR blocks should be one more than the total number of commas, and must match the number entered in NumSshCidrBlocks.
-    ConstraintDescription: must be a comma-delimited list of valid CIDR blocks (e.g., 10.20.114.23/16), with no comma after the last item.
   AzName:
     Type: AWS::EC2::AvailabilityZone::Name
     Description: The Availability Zone in which to create a public subnet for the new WordPress server.
@@ -57,6 +44,12 @@ Parameters:
     AllowedPattern: ^\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3}(\/\d{1,2})?$
     Description: The CIDR block for the new public subnet in the provided Availability Zone.
     ConstraintDescription: must be a valid CIDR block (e.g., 52.20.114.0/24)
+  BastionCidrBlock:
+    Type: String
+    Default: 10.0.128.0/24
+    AllowedPattern: ^\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3}(\/\d{1,2})?$
+    Description: This is the CIDR block from which SSH requests will be accepted.  You should only enter the CIDR block containing your bastion hosts.  Allowing SSH from ANY address (0.0.0.0/0) is strongly discouraged.
+    ConstraintDescription: must be a valid CIDR block (e.g., 10.5.114.23/16).
     
   PublicDns:
     Type: String
@@ -96,13 +89,6 @@ Parameters:
     Type: String
     NoEcho: true
     Description: Password for the root user of the WordPress server's backend MySQL database.  This password can be left blank if not required (after all, anyone wishing to access the database will already have to have SSH and superuser privileges on the WordPress server).
-  
-Conditions:
-  SshCidr5: !Equals [ !Ref NumSshCidrBlocks, 5 ]
-  SshCidr4: !Or [ !Equals [ !Ref NumSshCidrBlocks, 4 ], !Condition SshCidr5]
-  SshCidr3: !Or [ !Equals [ !Ref NumSshCidrBlocks, 3 ], !Condition SshCidr4]
-  SshCidr2: !Or [ !Equals [ !Ref NumSshCidrBlocks, 2 ], !Condition SshCidr3]
-  SshCidr1: !Or [ !Equals [ !Ref NumSshCidrBlocks, 1 ], !Condition SshCidr2]
     
 Resources:
   
@@ -131,6 +117,16 @@ Resources:
       Protocol: 1
       Icmp: { Code: -1, Type: -1 }
       CidrBlock: 0.0.0.0/0
+  InSshAcl:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref PubACL
+      RuleNumber: 140
+      Egress: false
+      RuleAction: allow
+      Protocol: 6
+      PortRange: { From: 22, To: 22 }
+      CidrBlock: !Ref BastionCidrBlock
   InHttpAcl:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
@@ -222,63 +218,6 @@ Resources:
       CidrBlock: 0.0.0.0/0
       PortRange: { From: 25, To: 25 }
       
-  # SSH ingress ACL rules
-  InSshAcl1:
-    Condition: SshCidr1
-    Type: AWS::EC2::NetworkAclEntry
-    Properties:
-      NetworkAclId: !Ref PubACL
-      RuleNumber: 141
-      Egress: false
-      RuleAction: allow
-      Protocol: 6
-      PortRange: { From: 22, To: 22 }
-      CidrBlock: !Select [ 0, !Ref SshCidrBlocks ]
-  InSshAcl2:
-    Condition: SshCidr2
-    Type: AWS::EC2::NetworkAclEntry
-    Properties:
-      NetworkAclId: !Ref PubACL
-      RuleNumber: 142
-      Egress: false
-      RuleAction: allow
-      Protocol: 6
-      PortRange: { From: 22, To: 22 }
-      CidrBlock: !Select [ 1, !Ref SshCidrBlocks ]
-  InSshAcl3:
-    Condition: SshCidr3
-    Type: AWS::EC2::NetworkAclEntry
-    Properties:
-      NetworkAclId: !Ref PubACL
-      RuleNumber: 143
-      Egress: false
-      RuleAction: allow
-      Protocol: 6
-      PortRange: { From: 22, To: 22 }
-      CidrBlock: !Select [ 2, !Ref SshCidrBlocks ]
-  InSshAcl4:
-    Condition: SshCidr4
-    Type: AWS::EC2::NetworkAclEntry
-    Properties:
-      NetworkAclId: !Ref PubACL
-      RuleNumber: 144
-      Egress: false
-      RuleAction: allow
-      Protocol: 6
-      PortRange: { From: 22, To: 22 }
-      CidrBlock: !Select [ 3, !Ref SshCidrBlocks ]
-  InSshAcl5:
-    Condition: SshCidr5
-    Type: AWS::EC2::NetworkAclEntry
-    Properties:
-      NetworkAclId: !Ref PubACL
-      RuleNumber: 145
-      Egress: false
-      RuleAction: allow
-      Protocol: 6
-      PortRange: { From: 22, To: 22 }
-      CidrBlock: !Select [ 4, !Ref SshCidrBlocks ]
-      
   # Security Group for the WordPress server
   WordPressSG:
     Type: AWS::EC2::SecurityGroup
@@ -291,6 +230,11 @@ Resources:
         FromPort: -1
         ToPort: -1
         CidrIp: 0.0.0.0/0
+      - # SSH access from bastion hosts
+        IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: !Ref BastionCidrBlock
       - # HTTP for internet access
         IpProtocol: tcp
         FromPort: 80
@@ -339,53 +283,6 @@ Resources:
       GroupId: !Ref WordPressSG
       IpProtocol: -1
       SourceSecurityGroupId: !Ref WordPressSG
-        
-  # SSH ingress security group rules
-  SshIngressSgRule1:
-    Type: AWS::EC2::SecurityGroupIngress
-    Condition: SshCidr1
-    Properties:
-      GroupId: !Ref WordPressSG
-      CidrIp: !Select [ 0, !Ref SshCidrBlocks ]
-      IpProtocol: tcp
-      FromPort: 22
-      ToPort: 22
-  SshIngressSgRule2:
-    Type: AWS::EC2::SecurityGroupIngress
-    Condition: SshCidr2
-    Properties:
-      GroupId: !Ref WordPressSG
-      CidrIp: !Select [ 1, !Ref SshCidrBlocks ]
-      IpProtocol: tcp
-      FromPort: 22
-      ToPort: 22
-  SshIngressSgRule3:
-    Type: AWS::EC2::SecurityGroupIngress
-    Condition: SshCidr3
-    Properties:
-      GroupId: !Ref WordPressSG
-      CidrIp: !Select [ 2, !Ref SshCidrBlocks ]
-      IpProtocol: tcp
-      FromPort: 22
-      ToPort: 22
-  SshIngressSgRule4:
-    Type: AWS::EC2::SecurityGroupIngress
-    Condition: SshCidr4
-    Properties:
-      GroupId: !Ref WordPressSG
-      CidrIp: !Select [ 3, !Ref SshCidrBlocks ]
-      IpProtocol: tcp
-      FromPort: 22
-      ToPort: 22
-  SshIngressSgRule5:
-    Type: AWS::EC2::SecurityGroupIngress
-    Condition: SshCidr5
-    Properties:
-      GroupId: !Ref WordPressSG
-      CidrIp: !Select [ 4, !Ref SshCidrBlocks ]
-      IpProtocol: tcp
-      FromPort: 22
-      ToPort: 22
       
   # Define the new public subnet
   Subnet:
