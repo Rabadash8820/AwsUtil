@@ -8,6 +8,7 @@ Metadata:
       -
         Parameters:
         - MainVPC
+        - ConnectProtocol
         - NumIngressCidrBlocks
         - IngressCidrBlocks
         - NumEgressCidrBlocks
@@ -18,6 +19,14 @@ Parameters:
     Type: AWS::EC2::VPC::Id
     Description: The VPC in which to create the security groups and network ACL.
     ConstraintDescription: must contain only alphanumeric characters and/or hyphens, and start with a letter
+  ConnectProtocol:
+    Type: String
+    Default: Secure Shell (SSH)
+    AllowedValues:
+    - Secure Shell (SSH)
+    - Remote Desktop (RDP)
+    - Both
+    Description: The protocol used to connect to other EC2 instances.  This is the only connection protocol that will be accepted from the IngressCidrBlocks or to the EgressCidrBlocks.  Use SSH for Linux instances and RDP for Windows instances; rarely, if ever, will you need both.
   NumIngressCidrBlocks:
     Type: Number
     Default: 1
@@ -44,16 +53,29 @@ Parameters:
     ConstraintDescription: must be a comma-delimited list of valid CIDR blocks (e.g., 10.20.114.0/24), with no comma after the last item.
   
 Conditions:
-  IngressCidr5: !Equals [ !Ref NumIngressCidrBlocks, 5 ]
-  IngressCidr4: !Or [ !Equals [ !Ref NumIngressCidrBlocks, 4 ], !Condition IngressCidr5]
-  IngressCidr3: !Or [ !Equals [ !Ref NumIngressCidrBlocks, 3 ], !Condition IngressCidr4]
-  IngressCidr2: !Or [ !Equals [ !Ref NumIngressCidrBlocks, 2 ], !Condition IngressCidr3]
-  IngressCidr1: !Or [ !Equals [ !Ref NumIngressCidrBlocks, 1 ], !Condition IngressCidr2]
-  EgressCidr5: !Equals [ !Ref NumEgressCidrBlocks, 5 ]
-  EgressCidr4: !Or [ !Equals [ !Ref NumEgressCidrBlocks, 4 ], !Condition EgressCidr5]
-  EgressCidr3: !Or [ !Equals [ !Ref NumEgressCidrBlocks, 3 ], !Condition EgressCidr4]
-  EgressCidr2: !Or [ !Equals [ !Ref NumEgressCidrBlocks, 2 ], !Condition EgressCidr3]
-  EgressCidr1: !Or [ !Equals [ !Ref NumEgressCidrBlocks, 1 ], !Condition EgressCidr2]
+  UseSsh: !Or [ !Equals [ !Ref ConnectProtocol, "Secure Shell (SSH)" ], !Equals [ !Ref ConnectProtocol, "Both" ] ]
+  SshIngressCidr5: !And [ !Condition UseSsh, !Equals [ !Ref NumIngressCidrBlocks, 5 ] ]
+  SshIngressCidr4: !And [ !Condition UseSsh, !Or [ !Equals [ !Ref NumIngressCidrBlocks, 4 ], !Condition SshIngressCidr5] ]
+  SshIngressCidr3: !And [ !Condition UseSsh, !Or [ !Equals [ !Ref NumIngressCidrBlocks, 3 ], !Condition SshIngressCidr4] ]
+  SshIngressCidr2: !And [ !Condition UseSsh, !Or [ !Equals [ !Ref NumIngressCidrBlocks, 2 ], !Condition SshIngressCidr3] ]
+  SshIngressCidr1: !And [ !Condition UseSsh, !Or [ !Equals [ !Ref NumIngressCidrBlocks, 1 ], !Condition SshIngressCidr2] ]
+  SshEgressCidr5: !And [ !Condition UseSsh, !Equals [ !Ref NumEgressCidrBlocks, 5 ] ]
+  SshEgressCidr4: !And [ !Condition UseSsh, !Or [ !Equals [ !Ref NumEgressCidrBlocks, 4 ], !Condition SshEgressCidr5] ]
+  SshEgressCidr3: !And [ !Condition UseSsh, !Or [ !Equals [ !Ref NumEgressCidrBlocks, 3 ], !Condition SshEgressCidr4] ]
+  SshEgressCidr2: !And [ !Condition UseSsh, !Or [ !Equals [ !Ref NumEgressCidrBlocks, 2 ], !Condition SshEgressCidr3] ]
+  SshEgressCidr1: !And [ !Condition UseSsh, !Or [ !Equals [ !Ref NumEgressCidrBlocks, 1 ], !Condition SshEgressCidr2] ]
+  
+  UseRdp: !Or [ !Equals [ !Ref ConnectProtocol, "Remote Desktop (RDP)" ], !Equals [ !Ref ConnectProtocol, "Both" ] ]
+  RdpIngressCidr5: !And [ !Condition UseRdp, !Equals [ !Ref NumIngressCidrBlocks, 5 ] ]
+  RdpIngressCidr4: !And [ !Condition UseRdp, !Or [ !Equals [ !Ref NumIngressCidrBlocks, 4 ], !Condition RdpIngressCidr5] ]
+  RdpIngressCidr3: !And [ !Condition UseRdp, !Or [ !Equals [ !Ref NumIngressCidrBlocks, 3 ], !Condition RdpIngressCidr4] ]
+  RdpIngressCidr2: !And [ !Condition UseRdp, !Or [ !Equals [ !Ref NumIngressCidrBlocks, 2 ], !Condition RdpIngressCidr3] ]
+  RdpIngressCidr1: !And [ !Condition UseRdp, !Or [ !Equals [ !Ref NumIngressCidrBlocks, 1 ], !Condition RdpIngressCidr2] ]
+  RdpEgressCidr5: !And [ !Condition UseRdp, !Equals [ !Ref NumEgressCidrBlocks, 5 ] ]
+  RdpEgressCidr4: !And [ !Condition UseRdp, !Or [ !Equals [ !Ref NumEgressCidrBlocks, 4 ], !Condition RdpEgressCidr5] ]
+  RdpEgressCidr3: !And [ !Condition UseRdp, !Or [ !Equals [ !Ref NumEgressCidrBlocks, 3 ], !Condition RdpEgressCidr4] ]
+  RdpEgressCidr2: !And [ !Condition UseRdp, !Or [ !Equals [ !Ref NumEgressCidrBlocks, 2 ], !Condition RdpEgressCidr3] ]
+  RdpEgressCidr1: !And [ !Condition UseRdp, !Or [ !Equals [ !Ref NumEgressCidrBlocks, 1 ], !Condition RdpEgressCidr2] ]
     
 Resources:
   
@@ -175,7 +197,7 @@ Resources:
       
   # SSH/RDP ingress ACL rules
   InSshAcl1:
-    Condition: IngressCidr1
+    Condition: SshIngressCidr1
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId: !Ref PubACL
@@ -186,7 +208,7 @@ Resources:
       PortRange: { From: 22, To: 22 }
       CidrBlock: !Select [ 0, !Ref IngressCidrBlocks ]
   InSshAcl2:
-    Condition: IngressCidr2
+    Condition: SshIngressCidr2
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId: !Ref PubACL
@@ -197,7 +219,7 @@ Resources:
       PortRange: { From: 22, To: 22 }
       CidrBlock: !Select [ 1, !Ref IngressCidrBlocks ]
   InSshAcl3:
-    Condition: IngressCidr3
+    Condition: SshIngressCidr3
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId: !Ref PubACL
@@ -208,7 +230,7 @@ Resources:
       PortRange: { From: 22, To: 22 }
       CidrBlock: !Select [ 2, !Ref IngressCidrBlocks ]
   InSshAcl4:
-    Condition: IngressCidr4
+    Condition: SshIngressCidr4
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId: !Ref PubACL
@@ -219,7 +241,7 @@ Resources:
       PortRange: { From: 22, To: 22 }
       CidrBlock: !Select [ 3, !Ref IngressCidrBlocks ]
   InSshAcl5:
-    Condition: IngressCidr5
+    Condition: SshIngressCidr5
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId: !Ref PubACL
@@ -230,7 +252,7 @@ Resources:
       PortRange: { From: 22, To: 22 }
       CidrBlock: !Select [ 4, !Ref IngressCidrBlocks ]
   InRdpAcl1:
-    Condition: IngressCidr1
+    Condition: RdpIngressCidr1
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId: !Ref PubACL
@@ -241,7 +263,7 @@ Resources:
       PortRange: { From: 3389, To: 3389 }
       CidrBlock: !Select [ 0, !Ref IngressCidrBlocks ]
   InRdpAcl2:
-    Condition: IngressCidr2
+    Condition: RdpIngressCidr2
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId: !Ref PubACL
@@ -252,7 +274,7 @@ Resources:
       PortRange: { From: 3389, To: 3389 }
       CidrBlock: !Select [ 1, !Ref IngressCidrBlocks ]
   InRdpAcl3:
-    Condition: IngressCidr3
+    Condition: RdpIngressCidr3
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId: !Ref PubACL
@@ -263,7 +285,7 @@ Resources:
       PortRange: { From: 3389, To: 3389 }
       CidrBlock: !Select [ 2, !Ref IngressCidrBlocks ]
   InRdpAcl4:
-    Condition: IngressCidr4
+    Condition: RdpIngressCidr4
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId: !Ref PubACL
@@ -274,7 +296,7 @@ Resources:
       PortRange: { From: 3389, To: 3389 }
       CidrBlock: !Select [ 3, !Ref IngressCidrBlocks ]
   InRdpAcl5:
-    Condition: IngressCidr5
+    Condition: RdpIngressCidr5
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId: !Ref PubACL
@@ -287,7 +309,7 @@ Resources:
 
   # SSH/RDP egress ACL rules
   OutSshAcl1:
-    Condition: EgressCidr1
+    Condition: SshEgressCidr1
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId: !Ref PubACL
@@ -298,7 +320,7 @@ Resources:
       PortRange: { From: 22, To: 22 }
       CidrBlock: !Select [ 0, !Ref EgressCidrBlocks ]
   OutSshAcl2:
-    Condition: EgressCidr2
+    Condition: SshEgressCidr2
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId: !Ref PubACL
@@ -309,7 +331,7 @@ Resources:
       PortRange: { From: 22, To: 22 }
       CidrBlock: !Select [ 1, !Ref EgressCidrBlocks ]
   OutSshAcl3:
-    Condition: EgressCidr3
+    Condition: SshEgressCidr3
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId: !Ref PubACL
@@ -320,7 +342,7 @@ Resources:
       PortRange: { From: 22, To: 22 }
       CidrBlock: !Select [ 2, !Ref EgressCidrBlocks ]
   OutSshAcl4:
-    Condition: EgressCidr4
+    Condition: SshEgressCidr4
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId: !Ref PubACL
@@ -331,7 +353,7 @@ Resources:
       PortRange: { From: 22, To: 22 }
       CidrBlock: !Select [ 3, !Ref EgressCidrBlocks ]
   OutSshAcl5:
-    Condition: EgressCidr5
+    Condition: SshEgressCidr5
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId: !Ref PubACL
@@ -342,7 +364,7 @@ Resources:
       PortRange: { From: 22, To: 22 }
       CidrBlock: !Select [ 4, !Ref EgressCidrBlocks ]
   OutRdpAcl1:
-    Condition: EgressCidr1
+    Condition: RdpEgressCidr1
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId: !Ref PubACL
@@ -353,7 +375,7 @@ Resources:
       PortRange: { From: 3389, To: 3389 }
       CidrBlock: !Select [ 0, !Ref EgressCidrBlocks ]
   OutRdpAcl2:
-    Condition: EgressCidr2
+    Condition: RdpEgressCidr2
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId: !Ref PubACL
@@ -364,7 +386,7 @@ Resources:
       PortRange: { From: 3389, To: 3389 }
       CidrBlock: !Select [ 1, !Ref EgressCidrBlocks ]
   OutRdpAcl3:
-    Condition: EgressCidr3
+    Condition: RdpEgressCidr3
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId: !Ref PubACL
@@ -375,7 +397,7 @@ Resources:
       PortRange: { From: 3389, To: 3389 }
       CidrBlock: !Select [ 2, !Ref EgressCidrBlocks ]
   OutRdpAcl4:
-    Condition: EgressCidr4
+    Condition: RdpEgressCidr4
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId: !Ref PubACL
@@ -386,7 +408,7 @@ Resources:
       PortRange: { From: 3389, To: 3389 }
       CidrBlock: !Select [ 3, !Ref EgressCidrBlocks ]
   OutRdpAcl5:
-    Condition: EgressCidr5
+    Condition: RdpEgressCidr5
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId: !Ref PubACL
@@ -451,7 +473,7 @@ Resources:
   # SSH/RDP ingress security group rules
   SshIngressSgRule1:
     Type: AWS::EC2::SecurityGroupIngress
-    Condition: IngressCidr1
+    Condition: SshIngressCidr1
     Properties:
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 0, !Ref IngressCidrBlocks ]
@@ -460,7 +482,7 @@ Resources:
       ToPort: 22
   SshIngressSgRule2:
     Type: AWS::EC2::SecurityGroupIngress
-    Condition: IngressCidr2
+    Condition: SshIngressCidr2
     Properties:
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 1, !Ref IngressCidrBlocks ]
@@ -469,7 +491,7 @@ Resources:
       ToPort: 22
   SshIngressSgRule3:
     Type: AWS::EC2::SecurityGroupIngress
-    Condition: IngressCidr3
+    Condition: SshIngressCidr3
     Properties:
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 2, !Ref IngressCidrBlocks ]
@@ -478,7 +500,7 @@ Resources:
       ToPort: 22
   SshIngressSgRule4:
     Type: AWS::EC2::SecurityGroupIngress
-    Condition: IngressCidr4
+    Condition: SshIngressCidr4
     Properties:
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 3, !Ref IngressCidrBlocks ]
@@ -487,7 +509,7 @@ Resources:
       ToPort: 22
   SshIngressSgRule5:
     Type: AWS::EC2::SecurityGroupIngress
-    Condition: IngressCidr5
+    Condition: SshIngressCidr5
     Properties:
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 4, !Ref IngressCidrBlocks ]
@@ -496,7 +518,7 @@ Resources:
       ToPort: 22
   RdpIngressSgRule1:
     Type: AWS::EC2::SecurityGroupIngress
-    Condition: IngressCidr1
+    Condition: RdpIngressCidr1
     Properties:
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 0, !Ref IngressCidrBlocks ]
@@ -505,7 +527,7 @@ Resources:
       ToPort: 3389
   RdpIngressSgRule2:
     Type: AWS::EC2::SecurityGroupIngress
-    Condition: IngressCidr2
+    Condition: RdpIngressCidr2
     Properties:
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 1, !Ref IngressCidrBlocks ]
@@ -514,7 +536,7 @@ Resources:
       ToPort: 3389
   RdpIngressSgRule3:
     Type: AWS::EC2::SecurityGroupIngress
-    Condition: IngressCidr3
+    Condition: RdpIngressCidr3
     Properties:
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 2, !Ref IngressCidrBlocks ]
@@ -523,7 +545,7 @@ Resources:
       ToPort: 3389
   RdpIngressSgRule4:
     Type: AWS::EC2::SecurityGroupIngress
-    Condition: IngressCidr4
+    Condition: RdpIngressCidr4
     Properties:
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 3, !Ref IngressCidrBlocks ]
@@ -532,7 +554,7 @@ Resources:
       ToPort: 3389
   RdpIngressSgRule5:
     Type: AWS::EC2::SecurityGroupIngress
-    Condition: IngressCidr5
+    Condition: RdpIngressCidr5
     Properties:
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 4, !Ref IngressCidrBlocks ]
@@ -543,7 +565,7 @@ Resources:
   # SSH/RDP egress security group rules
   SshEgressSgRule1:
     Type: AWS::EC2::SecurityGroupEgress
-    Condition: EgressCidr1
+    Condition: SshEgressCidr1
     Properties:
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 0, !Ref EgressCidrBlocks ]
@@ -552,7 +574,7 @@ Resources:
       ToPort: 22
   SshEgressSgRule2:
     Type: AWS::EC2::SecurityGroupEgress
-    Condition: EgressCidr2
+    Condition: SshEgressCidr2
     Properties:
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 1, !Ref EgressCidrBlocks ]
@@ -561,7 +583,7 @@ Resources:
       ToPort: 22
   SshEgressSgRule3:
     Type: AWS::EC2::SecurityGroupEgress
-    Condition: EgressCidr3
+    Condition: SshEgressCidr3
     Properties:
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 2, !Ref EgressCidrBlocks ]
@@ -570,7 +592,7 @@ Resources:
       ToPort: 22
   SshEgressSgRule4:
     Type: AWS::EC2::SecurityGroupEgress
-    Condition: EgressCidr4
+    Condition: SshEgressCidr4
     Properties:
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 3, !Ref EgressCidrBlocks ]
@@ -579,7 +601,7 @@ Resources:
       ToPort: 22
   SshEgressSgRule5:
     Type: AWS::EC2::SecurityGroupEgress
-    Condition: EgressCidr5
+    Condition: SshEgressCidr5
     Properties:
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 4, !Ref EgressCidrBlocks ]
@@ -588,7 +610,7 @@ Resources:
       ToPort: 22
   RdpEgressSgRule1:
     Type: AWS::EC2::SecurityGroupEgress
-    Condition: EgressCidr1
+    Condition: RdpEgressCidr1
     Properties:
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 0, !Ref EgressCidrBlocks ]
@@ -597,7 +619,7 @@ Resources:
       ToPort: 3389
   RdpEgressSgRule2:
     Type: AWS::EC2::SecurityGroupEgress
-    Condition: EgressCidr2
+    Condition: RdpEgressCidr2
     Properties:
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 1, !Ref EgressCidrBlocks ]
@@ -606,7 +628,7 @@ Resources:
       ToPort: 3389
   RdpEgressSgRule3:
     Type: AWS::EC2::SecurityGroupEgress
-    Condition: EgressCidr3
+    Condition: RdpEgressCidr3
     Properties:
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 2, !Ref EgressCidrBlocks ]
@@ -615,7 +637,7 @@ Resources:
       ToPort: 3389
   RdpEgressSgRule4:
     Type: AWS::EC2::SecurityGroupEgress
-    Condition: EgressCidr4
+    Condition: RdpEgressCidr4
     Properties:
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 3, !Ref EgressCidrBlocks ]
@@ -624,7 +646,7 @@ Resources:
       ToPort: 3389
   RdpEgressSgRule5:
     Type: AWS::EC2::SecurityGroupEgress
-    Condition: EgressCidr5
+    Condition: RdpEgressCidr5
     Properties:
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 4, !Ref EgressCidrBlocks ]
