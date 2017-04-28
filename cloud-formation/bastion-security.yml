@@ -29,7 +29,7 @@ Parameters:
     Type: CommaDelimitedList
     Default: 0.0.0.0/0
     Description: An array of CIDR blocks that are separated by commas.  These are the actual CIDR blocks from which SSH requests will be accepted.  The total number of CIDR blocks should be one more than the total number of commas, and must match the number entered in NumIngressCidrBlocks.
-    ConstraintDescription: must be a comma-delimited list of valid CIDR blocks (e.g., 10.20.114.23/16), with no comma after the last item.
+    ConstraintDescription: must be a comma-delimited list of valid CIDR blocks (e.g., 10.20.114.0/24), with no comma after the last item.
   NumEgressCidrBlocks:
     Type: Number
     Default: 1
@@ -41,7 +41,7 @@ Parameters:
     Type: CommaDelimitedList
     Default: 10.0.0.0/16
     Description: An array of CIDR blocks that are separated by commas.  These are the actual CIDR blocks to which SSH requests may be sent.  The total number of CIDR blocks should be one more than the total number of commas, and must match the number entered in NumEgressCidrBlocks.
-    ConstraintDescription: must be a comma-delimited list of valid CIDR blocks (e.g., 10.20.114.23/16), with no comma after the last item.
+    ConstraintDescription: must be a comma-delimited list of valid CIDR blocks (e.g., 10.20.114.0/24), with no comma after the last item.
   
 Conditions:
   IngressCidr5: !Equals [ !Ref NumIngressCidrBlocks, 5 ]
