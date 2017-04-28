@@ -25,6 +25,7 @@ Metadata:
         - KeyPair
         - TimeZone
         - YumUpdateEmail
+        - MySQLRootPassword
 
 Parameters:
   NetworkStackName:
@@ -91,8 +92,10 @@ Parameters:
     AllowedPattern: ^([0-9A-Za-z]+[._-]?)+[0-9A-Za-z]+@([0-9A-Za-z]+[._-]?)+\.[0-9A-Za-z]+$
     ConstraintDescription: must be a valid Email address, like "frodo@theshire.com".
     Description: Email to which notifications from automatic yum updates will be sent.  These notifications will only indicate that updates have been downloaded; the updates will still have to be installed manually.
-  
-  
+  MySQLRootPassword:
+    Type: String
+    NoEcho: true
+    Description: Password for the root user of the WordPress server's backend MySQL database.  This password can be left blank if not required (after all, anyone wishing to access the database will already have to have SSH and superuser privileges on the WordPress server).
   
 Conditions:
   SshCidr5: !Equals [ !Ref NumSshCidrBlocks, 5 ]
@@ -447,6 +450,7 @@ Resources:
           - add-newline-to-bash
           - auto-yum-update
           - lamp
+          - harden
           - dns-hostname    # manually calls reboot, so must come after other config sets
           - set-timezone    # manually calls reboot, so must come after other config sets
         cfn-hup:
@@ -553,6 +557,23 @@ Resources:
               mysql56-server: []
               php70-mysqlnd: []
               mod24_ssl: []
+          services:
+            sysvinit:
+              httpd:
+                enabled: true
+                ensureRunning: true
+                packages:
+                  yum:
+                  - httpd24
+                  - mod24_ssl
+              mysqld:
+                enabled: true
+                ensureRunning: true
+                packages:
+                  yum:
+                  - mysql56-server
+                  - php70-mysqlnd
+        harden:
           files:
             /etc/danware/ssl.sed:
               content: |
@@ -572,28 +593,27 @@ Resources:
               mode: "000400"
               owner: root
               group: root
+            /etc/danware/secure-mysql.sql:
+              content: !Sub |
+                UPDATE mysql.user SET Password=PASSWORD('${MySQLRootPassword}') WHERE User='root';
+                DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');
+                DELETE FROM mysql.user WHERE User='';
+                DELETE FROM mysql.db WHERE Db='test' OR Db LIKE 'test_%';
+                FLUSH PRIVILEGES;
+              mode: "000400"
+              owner: root
+              group: root
           commands:
+            harden-mysql:
+              command: |
+                mysql -u root < /etc/danware/secure-mysql.sql
+                echo MySQL server hardened
+                service mysqld restart
             harden-web-server:
               command: |
                 sed --file /etc/danware/ssl.sed --in-place /etc/httpd/conf.d/ssl.conf
                 echo Apache server hardened
-                service yum-cron restart
-          services:
-            sysvinit:
-              httpd:
-                enabled: true
-                ensureRunning: true
-                packages:
-                  yum:
-                  - httpd24
-                  - mod24_ssl
-              mysqld:
-                enabled: true
-                ensureRunning: true
-                packages:
-                  yum:
-                  - mysql56-server
-                  - php70-mysqlnd
+                service httpd restart
         dns-hostname:
           commands:
             dns-hostname:
