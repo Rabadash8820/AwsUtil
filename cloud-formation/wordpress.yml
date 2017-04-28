@@ -510,11 +510,13 @@ Resources:
           files:
             /etc/danware/bastion-yum-cron.sed:
               content: !Sub |
-                s|update_messages = no|update_messages = yes|
-                s|download_updates = no|download_updates = yes|
-                s|emit_via = stdio|emit_via = email|
-                s|email_from = root|email_from = yum-cron|
-                s|email_to = root|email_to = ${YumUpdateEmail}|
+                s|update_messages.*|update_messages = yes|
+                s|download_updates.*|download_updates = yes|
+                s|apply_updates.*|apply_updates = no|
+                s|system_name.*|system_name = None|
+                s|emit_via.*|emit_via = email|
+                s|email_from.*|email_from = yum-cron@localhost|
+                s|email_to.*|email_to = ${YumUpdateEmail}|
               mode: "000400"
               owner: root
               group: root
@@ -522,7 +524,7 @@ Resources:
             1_security-updates:
               command: |
                 sed --file /etc/danware/bastion-yum-cron.sed --in-place /etc/yum/yum-cron-hourly.conf
-                sed 's|update_cmd = default|update_cmd = security|' --in-place /etc/yum/yum-cron-hourly.conf
+                sed 's|update_cmd.*|update_cmd = security|' --in-place /etc/yum/yum-cron-hourly.conf
                 echo Hourly security updates configured
             2_complete-updates:
               command: |
@@ -573,7 +575,7 @@ Resources:
               command: !Sub |
                 newName=${PublicDns}
                 oldName=$(hostname)
-                sed "s|HOSTNAME=localhost.localdomain|HOSTNAME=$newName|" --in-place /etc/sysconfig/network
+                sed "s|HOSTNAME.*|HOSTNAME=$newName|" --in-place /etc/sysconfig/network
                 echo HOSTNAME changed from \"$oldName\" to \"$newName\"
                 reboot
               test: !Sub |
@@ -593,7 +595,7 @@ Resources:
               command: !Sub |
                 newZone=${TimeZone}
                 oldZone=$(date +%Z)
-                sed --regexp-extended "s|ZONE=\"(\\w*/?)+\"|ZONE=\"$newZone\"|" --in-place /etc/sysconfig/clock
+                sed "s|ZONE.*|ZONE=\"$newZone\"|" --in-place /etc/sysconfig/clock
                 ln --symbolic --force /usr/share/zoneinfo/$newZone /etc/localtime
                 echo Time zone changed from \"$oldZone\" to \"$newZone\"
                 reboot
