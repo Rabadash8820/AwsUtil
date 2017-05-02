@@ -35,6 +35,21 @@ Resources:
       LoggingConfiguration:
         DestinationBucketName: !Ref LogBucketName
         LogFilePrefix: lambda/
+  LambdaBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref LambdaBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - # Allow anybody to do any S3 action on the Lambda bucket, as long as they use TLS/SSL
+            Sid: AnyS3ActionOverSSL
+            Effect: Allow
+            Principal: { AWS: !Ref "AWS::AccountId" }
+            Action: s3:*
+            Resource: !Sub arn:aws:s3:::${OrganizationPrefix}-${AWS::Region}-lambda
+            Condition:
+              Bool: { "aws:SecureTransport": true }
         
 Outputs:
   LambdaS3Bucket:

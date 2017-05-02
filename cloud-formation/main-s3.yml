@@ -48,6 +48,21 @@ Resources:
           - { StorageClass: STANDARD_IA, TransitionInDays: !Ref DaysToInfrequentAccess }
       LoggingConfiguration:
         LogFilePrefix: log-bucket/
+  LogsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref LogsBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - # Allow anybody to do any S3 action on the Logs bucket, as long as they use TLS/SSL
+            Sid: AnyS3ActionOverSSL
+            Effect: Allow
+            Principal: { AWS: !Ref "AWS::AccountId" }
+            Action: s3:*
+            Resource: !Sub arn:aws:s3:::${OrganizationPrefix}-${AWS::Region}-logs
+            Condition:
+              Bool: { "aws:SecureTransport": true }
         
 Outputs:
   LogsBucket:
