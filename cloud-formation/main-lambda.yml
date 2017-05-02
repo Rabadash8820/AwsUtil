@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: 2010-09-09
 
-Description: An S3 bucket for Lambda functions, and IAM principals for managing Lambda in the AWS account
+Description: An S3 bucket for Lambda functions
 
 Metadata:
   AWS::CloudFormation::Interface: 

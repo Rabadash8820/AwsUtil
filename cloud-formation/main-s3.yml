@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: 2010-09-09
 
-Description: An S3 bucket for bucket server access logs, and IAM principals for managing S3 in the AWS account
+Description: An S3 bucket for bucket access logs
 
 Metadata:
   AWS::CloudFormation::Interface: 
