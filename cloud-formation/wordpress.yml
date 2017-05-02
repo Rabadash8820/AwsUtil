@@ -505,7 +505,6 @@ Resources:
               command: |
                 mysql -u root < /etc/danware/secure-mysql.sql
                 echo MySQL server hardened
-                service mysqld restart
             harden-web-server:
               command: |
                 sed --file /etc/danware/ssl.sed --in-place /etc/httpd/conf.d/ssl.conf
