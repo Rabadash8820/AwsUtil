@@ -20,8 +20,12 @@ Metadata:
         - PublicDns
         - HostedZone
         - AmiLookupFunctionArn
-        - HardenOS
+      -
+        Label:
+          default: Bastion Host Software Configuration
+        Parameters:
         - KeyPair
+        - HardenOS
         - TimeZone
         - YumUpdateEmail
 

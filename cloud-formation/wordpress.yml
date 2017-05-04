@@ -22,6 +22,10 @@ Metadata:
         - ElasticIP
         - InstanceType
         - AmiLookupFunctionArn
+      -
+        Label:
+          default: WordPress Server Software Configuration
+        Parameters:
         - KeyPair
         - TimeZone
         - YumUpdateEmail
