@@ -144,7 +144,7 @@ Resources:
         Fn::Base64: !Sub |
           #!/bin/bash
           yum install -y aws-cfn-bootstrap  # not really necessary with Amazon Linux AMI, but the docs recommend it
-          /opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --region ${AWS::Region} --resource Bastion --configsets bastion
+          /opt/aws/bin/cfn-init --verbose --stack ${AWS::StackName} --region ${AWS::Region} --resource Bastion --configsets bastion
           /opt/aws/bin/cfn-signal --exit-code $? --stack ${AWS::StackName} --region ${AWS::Region} --resource Bastion
     CreationPolicy:
       ResourceSignal:
@@ -179,7 +179,7 @@ Resources:
                 [reset-on-update]
                 triggers=post.update
                 path=Resources.Bastion.Metadata.AWS::CloudFormation::Init
-                action=/opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --region ${AWS::Region} --resource Bastion --configsets bastion
+                action=/opt/aws/bin/cfn-init --verbose --stack ${AWS::StackName} --region ${AWS::Region} --resource Bastion --configsets bastion
                 runas=root
               mode: "000400"
               owner: root

@@ -401,7 +401,7 @@ Resources:
         Fn::Base64: !Sub |
           #!/bin/bash
           yum install -y aws-cfn-bootstrap  # not really necessary with Amazon Linux AMI, but the docs recommend it
-          /opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --region ${AWS::Region} --resource WordPress --configsets wp
+          /opt/aws/bin/cfn-init --verbose --stack ${AWS::StackName} --region ${AWS::Region} --resource WordPress --configsets wp
           /opt/aws/bin/cfn-signal --exit-code $? --stack ${AWS::StackName} --region ${AWS::Region} --resource WordPress
     CreationPolicy:
       ResourceSignal:
@@ -438,7 +438,7 @@ Resources:
                 [reset-on-update]
                 triggers=post.update
                 path=Resources.WordPress.Metadata.AWS::CloudFormation::Init
-                action=/opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --region ${AWS::Region} --resource WordPress --configsets wp
+                action=/opt/aws/bin/cfn-init --verbose --stack ${AWS::StackName} --region ${AWS::Region} --resource WordPress --configsets wp
                 runas=root
               mode: "000400"
               owner: root
