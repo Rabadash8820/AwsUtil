@@ -460,7 +460,7 @@ Resources:
                 echo 'PS1="\n$PS1"' >> /home/ec2-user/.bashrc
                 echo Added a newline to bash prompt
               test: |
-                numAddedLines=$(cat /home/ec2-user/.bashrc | grep '^PS1="\\n\$PS1"$' | wc -l)
+                numAddedLines=$(cat /home/ec2-user/.bashrc | grep '^PS1="\\n\$PS1"$' | wc --lines)
                 if [ $numAddedLines = 0 ] ; then
                   echo Newline will be added to bash prompt
                   exit 0
@@ -588,7 +588,7 @@ Resources:
                 reboot
               test: !Sub |
                 publicDns=${PublicDns}
-                numChangedLines=$(cat /etc/sysconfig/network | grep "^HOSTNAME=$publicDns$" | wc -l)
+                numChangedLines=$(cat /etc/sysconfig/network | grep "^HOSTNAME=$publicDns$" | wc --lines)
                 if [ $numChangedLines = 0 ] ; then
                   echo HOSTNAME will be changed to \"$publicDns\"
                   exit 0
@@ -609,7 +609,7 @@ Resources:
                 reboot
               test: !Sub |
                 timeZone=${TimeZone}
-                numChangedLines=$(cat /etc/sysconfig/clock | grep "^ZONE=\"$timeZone\"$" | wc -l)
+                numChangedLines=$(cat /etc/sysconfig/clock | grep "^ZONE=\"$timeZone\"$" | wc --lines)
                 if [ $numChangedLines = 0 ] ; then
                   echo Time zone will be changed to \"$timeZone\"
                   exit 0
