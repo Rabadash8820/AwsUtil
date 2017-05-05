@@ -30,6 +30,7 @@ Metadata:
         - TimeZone
         - YumUpdateEmail
         - MySQLRootPassword
+        - MySQLWordPressPassword
 
 Parameters:
   NetworkStackName:
@@ -156,6 +157,10 @@ Parameters:
     Type: String
     NoEcho: true
     Description: Password for the root user of the WordPress server's backend MySQL database.  This password can be left blank if not required (after all, anyone wishing to access the database will already have to have SSH and superuser privileges on the WordPress server).
+  MySQLWordPressPassword:
+    Type: String
+    NoEcho: true
+    Description: Password for the 'wordpress' user of the backend MySQL database.  This password can be left blank if not required (after all, anyone wishing to access the database will already have to have SSH and superuser privileges on the WordPress server).
     
 Resources:
   
@@ -415,6 +420,7 @@ Resources:
           - auto-yum-update
           - lamp
           - harden
+          - wordpress
           - dns-hostname    # manually calls reboot, so must come after other config sets
           - set-timezone    # manually calls reboot, so must come after other config sets
         cfn-hup:
@@ -539,7 +545,7 @@ Resources:
                   - php70-mysqlnd
         harden:
           files:
-            /etc/danware/ssl.sed:
+            /etc/danware/apache-ssl.sed:
               content: |
                 # Uncomment directives
                 s|#SSLProtocol|SSLProtocol|
@@ -570,13 +576,44 @@ Resources:
           commands:
             harden-mysql:
               command: |
-                mysql -u root < /etc/danware/secure-mysql.sql
+                mysql --user root < /etc/danware/secure-mysql.sql
                 echo MySQL server hardened
             harden-web-server:
               command: |
-                sed --file /etc/danware/ssl.sed --in-place /etc/httpd/conf.d/ssl.conf
+                sed --file /etc/danware/apache-ssl.sed --in-place /etc/httpd/conf.d/ssl.conf
                 echo Apache server hardened
                 service httpd restart
+        wordpress:
+          sources:
+            /etc/danware: https://wordpress.org/latest.tar.gz
+          commands:
+            create-wp-db:
+              command: !Sub |
+                mysql --user root --password=${MySQLRootPassword} --execute "CREATE DATABASE wp;" --batch --silent
+                echo WordPress database created.
+              test: !Sub |
+                dbExists=$(mysql --user root --password=${MySQLRootPassword} --execute "SHOW DATABASES;" --batch --silent | grep wp | wc --lines)
+                if [ $dbExists = 0 ] ; then
+                  echo WordPress database will be created.
+                  exit 0
+                else
+                  echo WordPress database already exists.
+                  exit 1
+                fi
+            create-wp-user:
+              command: !Sub |
+                mysql --user root --password=${MySQLRootPassword} --execute "GRANT ALL PRIVILEGES ON wp.* TO 'wp'@'localhost' IDENTIFIED BY '${MySQLWordPressPassword}'; FLUSH PRIVILEGES;" --batch --silent
+                echo WordPress database created.
+              test: !Sub |
+                userExists=$(mysql --user root --password=${MySQLRootPassword} --execute "SELECT user FROM mysql.user where user = 'wp';" --batch --silent | grep wp | wc --lines)
+                if [ $userExists = 0 ] ; then
+                  echo WordPress database user will be created.
+                  exit 0
+                else
+                  echo WordPress database user already exists.
+                  exit 1
+                fi
+                
         dns-hostname:
           commands:
             dns-hostname:
