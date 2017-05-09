@@ -30,6 +30,7 @@ Metadata:
         - TimeZone
         - YumUpdateEmail
         - MySQLRootPassword
+        - MySQLWordPressPassword
 
 Parameters:
   NetworkStackName:
@@ -156,6 +157,10 @@ Parameters:
     Type: String
     NoEcho: true
     Description: Password for the root user of the WordPress server's backend MySQL database.  This password can be left blank if not required (after all, anyone wishing to access the database will already have to have SSH and superuser privileges on the WordPress server).
+  MySQLWordPressPassword:
+    Type: String
+    NoEcho: true
+    Description: Password for the 'wordpress' user of the backend MySQL database.  This password can be left blank if not required (after all, anyone wishing to access the database will already have to have SSH and superuser privileges on the WordPress server).
     
 Resources:
   
@@ -415,6 +420,7 @@ Resources:
           - auto-yum-update
           - lamp
           - harden
+          - wordpress
           - dns-hostname    # manually calls reboot, so must come after other config sets
           - set-timezone    # manually calls reboot, so must come after other config sets
         cfn-hup:
@@ -539,7 +545,7 @@ Resources:
                   - php70-mysqlnd
         harden:
           files:
-            /etc/danware/ssl.sed:
+            /etc/danware/apache-ssl.sed:
               content: |
                 # Uncomment directives
                 s|#SSLProtocol|SSLProtocol|
@@ -570,13 +576,100 @@ Resources:
           commands:
             harden-mysql:
               command: |
-                mysql -u root < /etc/danware/secure-mysql.sql
+                mysql --user root < /etc/danware/secure-mysql.sql
                 echo MySQL server hardened
             harden-web-server:
               command: |
-                sed --file /etc/danware/ssl.sed --in-place /etc/httpd/conf.d/ssl.conf
+                sed --file /etc/danware/apache-ssl.sed --in-place /etc/httpd/conf.d/ssl.conf
                 echo Apache server hardened
                 service httpd restart
+        wordpress:
+          sources:
+            /etc/danware: https://wordpress.org/latest.tar.gz
+          files:
+            /etc/danware/wp-config.sed:
+              content: !Sub |
+                s|\r||
+                /DB_NAME/s|, '.*'|, 'wp'|
+                /DB_USER/s|, '.*'|, 'wp'|
+                /DB_PASSWORD/s|, '.*'|, '${MySQLWordPressPassword}'|
+                /'AUTH_KEY'/i__D_A_N_W_A_R_E__
+                /'AUTH_KEY'/,/NONCE_SALT/d
+              mode: "000400"
+              owner: root
+              group: root
+          commands:
+            create-wp-db:
+              command: !Sub |
+                mysql --user root --password=${MySQLRootPassword} --execute "CREATE DATABASE wp;" --batch --silent
+                echo WordPress database created.
+              test: !Sub |
+                dbExists=$(mysql --user root --password=${MySQLRootPassword} --execute "SHOW DATABASES;" --batch --silent | grep wp | wc --lines)
+                if [ $dbExists = 0 ] ; then
+                  echo WordPress database will be created.
+                  exit 0
+                else
+                  echo WordPress database already exists.
+                  exit 1
+                fi
+            create-wp-user:
+              command: !Sub |
+                mysql --user root --password=${MySQLRootPassword} --execute "GRANT ALL PRIVILEGES ON wp.* TO 'wp'@'localhost' IDENTIFIED BY '${MySQLWordPressPassword}'; FLUSH PRIVILEGES;" --batch --silent
+                echo WordPress database user created.
+              test: !Sub |
+                userExists=$(mysql --user root --password=${MySQLRootPassword} --execute "SELECT user FROM mysql.user where user = 'wp';" --batch --silent | grep wp | wc --lines)
+                if [ $userExists = 0 ] ; then
+                  echo WordPress database user will be created.
+                  exit 0
+                else
+                  echo WordPress database user already exists.
+                  exit 1
+                fi
+            move-to-apache-root:
+              command: |
+                mv /etc/danware/wordpress/* /var/www/html/
+                rm --force --recursive /etc/danware/wordpress/    # Folder doesn't belong to root so mv doesn't delete it
+                echo WordPress files moved to Apache root.
+              test: |
+                if [ -e /var/www/html/wp-activate.php ] ; then
+                  echo WordPress files already moved to Apache root.
+                  exit 1
+                else
+                  echo WordPress files will be moved to Apache root.
+                  exit 0
+                fi
+            permalinks:
+              command: |
+                sed "151s|AllowOverride.*|AllowOverride All|" --in-place /etc/httpd/conf/httpd.conf
+                service httpd restart
+                echo WordPress permalinks have been allowed.
+            sample-config-copy:
+              cwd: /var/www/html/
+              command: |
+                cp wp-config-sample.php wp-config.php
+                echo Created WordPress config file from the sample.
+              test: |
+                if [ ! -e wp-config.php -a -e wp-config-sample.php ] ; then
+                  echo WordPress config file will be created.
+                  exit 0
+                else
+                  echo WordPress config file already created, or sample could not be found to copy.
+                  exit 1
+                fi
+            update-config:
+              cwd: /var/www/html/
+              command: |
+                sed --file /etc/danware/wp-config.sed --in-place wp-config.php
+                sed "s|__D_A_N_W_A_R_E__|curl --silent https://api.wordpress.org/secret-key/1.1/salt/|e" --in-place wp-config.php
+                echo WordPress config file updated.
+              test: |
+                if [ -e wp-config.php ] ; then
+                  echo WordPress config file located for updating.
+                  exit 0
+                else
+                  echo WordPress config file could not be located for updating.
+                  exit 1
+                fi
         dns-hostname:
           commands:
             dns-hostname:
