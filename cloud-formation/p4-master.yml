@@ -43,19 +43,19 @@ Parameters:
     Type: String
     Default: 10.0.150.0/28
     AllowedPattern: ^\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3}(\/\d{1,2})?$
-    Description: The CIDR block for the new public subnet in the provided Availability Zone.
+    Description: The CIDR block for the new public subnet in the provided Availability Zone.  Block size must be between a /16 netmask and a /28 netmask.
     ConstraintDescription: must be a valid CIDR block (e.g., 10.20.114.0/24)
   NumIngressCidrBlocks:
     Type: Number
     Default: 1
     MinValue: 1
     MaxValue: 5
-    Description: The number of CIDR blocks from which P4 requests into the P4 master server will be accepted. The actual CIDR blocks must be entered in the IngressCidrBlocks parameter.  Allowing P4 from ANY address (0.0.0.0/0) is strongly discouraged.
+    Description: The number of CIDR blocks from which P4 requests into the P4 master server will be accepted. The actual CIDR blocks must be entered in the IngressCidrBlocks parameter.
     ConstraintDescription: must be an integer between 1 and 5 (inclusive)
   IngressCidrBlocks:
     Type: CommaDelimitedList
     Default: 0.0.0.0/0
-    Description: An array of CIDR blocks that are separated by commas.  These are the actual CIDR blocks from which P4 requests will be accepted.  The total number of CIDR blocks should be one more than the total number of commas, and must match the number entered in NumIngressCidrBlocks.
+    Description: An array of CIDR blocks that are separated by commas.  These are the actual CIDR blocks from which P4 requests will be accepted.  Allowing P4 from ANY address (0.0.0.0/0) is strongly discouraged.  The total number of CIDR blocks should be one more than the total number of commas, and must match the number entered in NumIngressCidrBlocks.
     ConstraintDescription: must be a comma-delimited list of valid CIDR blocks (e.g., 10.20.114.0/24), with no comma after the last item.
   BastionCidrBlock:
     Type: String

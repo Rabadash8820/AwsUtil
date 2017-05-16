@@ -26,30 +26,30 @@ Parameters:
     - Secure Shell (SSH)
     - Remote Desktop (RDP)
     - Both
-    Description: The protocol used to connect to other EC2 instances.  This is the only connection protocol that will be accepted from the IngressCidrBlocks or to the EgressCidrBlocks.  Use SSH for Linux instances and RDP for Windows instances; rarely, if ever, will you need both.
+    Description: The protocol used to connect to other EC2 instances.  This is the only connection protocol that will be accepted from the IngressCidrBlocks or to the EgressCidrBlocks.  Choose "SSH" for Linux bastion hosts or "RDP" for Windows bastion hosts.  If you have a mix of Windows and Linux bastion hosts, then choose "Both".
   NumIngressCidrBlocks:
     Type: Number
     Default: 1
     MinValue: 1
     MaxValue: 5
-    Description: The number of CIDR blocks from which SSH requests into the bastion host will be accepted. The actual CIDR blocks must be entered in the IngressCidrBlocks parameter.  Allowing SSH from ANY address (0.0.0.0/0) is strongly discouraged.
+    Description: The number of CIDR blocks from which SSH requests into the bastion host will be accepted. The actual CIDR blocks must be entered in the IngressCidrBlocks parameter.
     ConstraintDescription: must be an integer between 1 and 5 (inclusive)
   IngressCidrBlocks:
     Type: CommaDelimitedList
     Default: 0.0.0.0/0
-    Description: An array of CIDR blocks that are separated by commas.  These are the actual CIDR blocks from which SSH requests will be accepted.  The total number of CIDR blocks should be one more than the total number of commas, and must match the number entered in NumIngressCidrBlocks.
+    Description: An array of CIDR blocks that are separated by commas.  These are the actual CIDR blocks from which SSH requests will be accepted.  Allowing SSH from ANY address (0.0.0.0/0) is strongly discouraged.  The total number of CIDR blocks should be one more than the total number of commas, and must match the number entered in NumIngressCidrBlocks.
     ConstraintDescription: must be a comma-delimited list of valid CIDR blocks (e.g., 10.20.114.0/24), with no comma after the last item.
   NumEgressCidrBlocks:
     Type: Number
     Default: 1
     MinValue: 1
     MaxValue: 5
-    Description: The number of CIDR blocks to which SSH requests from the bastion host may be sent. The actual CIDR blocks must be entered in the EgressCidrBlocks parameter.  Allowing SSH to ANY address (0.0.0.0/0) is strongly discouraged.
+    Description: The number of CIDR blocks to which SSH requests from the bastion host may be sent. The actual CIDR blocks must be entered in the EgressCidrBlocks parameter.
     ConstraintDescription: must be an integer between 1 and 5 (inclusive)
   EgressCidrBlocks:
     Type: CommaDelimitedList
     Default: 10.0.0.0/16
-    Description: An array of CIDR blocks that are separated by commas.  These are the actual CIDR blocks to which SSH requests may be sent.  The total number of CIDR blocks should be one more than the total number of commas, and must match the number entered in NumEgressCidrBlocks.
+    Description: An array of CIDR blocks that are separated by commas.  These are the actual CIDR blocks to which SSH requests may be sent.  Allowing SSH to ANY address (0.0.0.0/0) is strongly discouraged.  The total number of CIDR blocks should be one more than the total number of commas, and must match the number entered in NumEgressCidrBlocks.
     ConstraintDescription: must be a comma-delimited list of valid CIDR blocks (e.g., 10.20.114.0/24), with no comma after the last item.
   
 Conditions:
