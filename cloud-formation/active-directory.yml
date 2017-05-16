@@ -16,11 +16,27 @@ Metadata:
       Label:
         default: Active Directory Configuration
       Parameters:
+      - Type
+      - Size
       - DirectoryName
       - NetbiosName
       - AdminPassword
 
 Parameters:
+  Type:
+    Type: String
+    Default: SimpleAD
+    AllowedValues:
+    - SimpleAD
+    - MicrosoftAD
+    Description: The type of Directory server to create.  Choose "MicrosoftAD" for a standard Microsoft Active Directory server.  For a smaller/cheaper alternative, choose "SimpleAD" for a Samba 4 Active Directory Compatible Server.
+  Size:
+    Type: String
+    Default: Small
+    AllowedValues:
+    - Small
+    - Large
+    Description: The size of Directory server to create.  This parameter is only valid for SimpleAD type Directories; it is ignored for MicrosoftAD type Directories.  A "Large" Directory is recommended for organizations with 100 or more active users.
   NetworkStackName:
     Type: String
     Default: MainVPC
@@ -65,6 +81,10 @@ Parameters:
     Description: The password for the default directory administrative user.
     ConstraintDescription: "must have an 8-character minimum with at least one character having at least three of these attributes: lowercase, uppercase, numeric, and special characters."
 
+Conditions:
+  CreateSimpleAD: !Equals [ !Ref Type, "SimpleAD" ]
+  CreateMicrosoftAD: !Equals [ !Ref Type, "MicrosoftAD" ]
+    
 Resources:
   # Network ACL for the new public subnet(s)
   PubACL:
@@ -142,14 +162,29 @@ Resources:
   # Active Directory
   SimpleAD:
     Type: AWS::DirectoryService::SimpleAD
+    Condition: CreateSimpleAD
     Properties: 
       Name: !Ref DirectoryName
       Description: A Samba 4 Active Directory Compatible Server for the organization.
       CreateAlias: true
       ShortName: !Ref NetbiosName
       Password: !Ref AdminPassword
-      Size: Small
+      Size: !Ref Size
       EnableSso: true  # Single sign-on for computers connected to the AD (like WorkSpaces)
+      VpcSettings:
+        VpcId: !ImportValue MainVPC
+        SubnetIds: 
+        - !Ref DirectorySubnet1
+        - !Ref DirectorySubnet2
+  MicrosoftAD:
+    Type: AWS::DirectoryService::MicrosoftAD
+    Condition: CreateMicrosoftAD
+    Properties:
+      Name: !Ref DirectoryName
+      CreateAlias: true
+      ShortName: !Ref NetbiosName
+      Password: !Ref AdminPassword
+      EnableSso: false  # Single sign-on for computers connected to the AD (like WorkSpaces)
       VpcSettings:
         VpcId: !ImportValue MainVPC
         SubnetIds: 
@@ -159,4 +194,9 @@ Resources:
 Outputs:
   ActiveDirectory:
     Value: !Ref SimpleAD
+    Condition: CreateSimpleAD
+    Description: The ID of the new Active Directory
+  ActiveDirectory:
+    Value: !Ref MicrosoftAD
+    Condition: CreateMicrosoftAD
     Description: The ID of the new Active Directory
