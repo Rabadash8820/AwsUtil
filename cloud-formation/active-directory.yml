@@ -17,6 +17,7 @@ Metadata:
         default: Active Directory Configuration
       Parameters:
       - Type
+      - Size
       - DirectoryName
       - NetbiosName
       - AdminPassword
@@ -29,6 +30,13 @@ Parameters:
     - SimpleAD
     - MicrosoftAD
     Description: The type of Directory server to create.  Choose "MicrosoftAD" for a standard Microsoft Active Directory server.  For a smaller/cheaper alternative, choose "SimpleAD" for a Samba 4 Active Directory Compatible Server.
+  Size:
+    Type: String
+    Default: Small
+    AllowedValues:
+    - Small
+    - Large
+    Description: The size of Directory server to create.  This parameter is only valid for SimpleAD type Directories; it is ignored for MicrosoftAD type Directories.  A "Large" Directory is recommended for organizations with 100 or more active users.
   NetworkStackName:
     Type: String
     Default: MainVPC
@@ -161,7 +169,7 @@ Resources:
       CreateAlias: true
       ShortName: !Ref NetbiosName
       Password: !Ref AdminPassword
-      Size: Small
+      Size: !Ref Size
       EnableSso: true  # Single sign-on for computers connected to the AD (like WorkSpaces)
       VpcSettings:
         VpcId: !ImportValue MainVPC
