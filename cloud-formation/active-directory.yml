@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: 2010-09-09
 
-Description: A Samba 4 Active Directory Compatible Server
+Description: An Active Directory (or Samba 4 Active Directory Compatible Server) replicated across two Availability Zones.
 
 Metadata:
   AWS::CloudFormation::Interface: 
@@ -16,8 +16,8 @@ Metadata:
         default: Active Directory Configuration
       Parameters:
       - DirectoryName
-      - DirectoryNetbiosName
-      - DirectoryPassword
+      - NetbiosName
+      - AdminPassword
 
 Parameters:
   NetworkStackName:
@@ -42,7 +42,7 @@ Parameters:
     AllowedPattern: ^([a-zA-Z0-9]+[\\.-])+([a-zA-Z0-9])+$
     Description: A fully qualified domain name (for example, corp.example.com). This name will resolve inside your VPC only. It does not need to be publicly resolvable.
     ConstraintDescription: must contain only alphanumeric characters and/or hyphens, and start with a letter
-  DirectoryNetbiosName:
+  NetbiosName:
     Type: String
     Default: CORP
     MinLength: 1
@@ -50,7 +50,7 @@ Parameters:
     AllowedPattern: ^[^\\/:*?\"\<\>|.]+[^\\/:*?\"<>|]*$
     Description: The NetBIOS name for your domain. This value must be 15 characters or less.
     ConstraintDescription: must contain only alphanumeric characters and/or hyphens, and start with a letter
-  DirectoryPassword:
+  AdminPassword:
     Type: String
     NoEcho: true
     AllowedPattern: (?=^.{8,64}$)((?=.*\d)(?=.*[A-Z])(?=.*[a-z])|(?=.*\d)(?=.*[^A-Za-z0-9\s])(?=.*[a-z])|(?=.*[^A-Za-z0-9\s])(?=.*[A-Z])(?=.*[a-z])|(?=.*\d)(?=.*[A-Z])(?=.*[^A-Za-z0-9\s]))^.*
@@ -132,15 +132,15 @@ Resources:
       SubnetId: !Ref DirectorySubnet2
       
   # Active Directory
-  MainAD:
+  SimpleAD:
     Type: AWS::DirectoryService::SimpleAD
     Properties: 
-      Description: A Samba 4 Active Directory Compatible Server for the company.
-      EnableSso: false  # Single sign-on for computers connected to the AD (like WorkSpaces)
       Name: !Ref DirectoryName
-      ShortName: !Ref DirectoryNetbiosName
-      Password: !Ref DirectoryPassword
+      Description: A Samba 4 Active Directory Compatible Server for the organization.
+      ShortName: !Ref NetbiosName
+      Password: !Ref AdminPassword
       Size: Small
+      EnableSso: false  # Single sign-on for computers connected to the AD (like WorkSpaces)
       VpcSettings:
         VpcId: !ImportValue MainVPC
         SubnetIds: 
@@ -149,5 +149,5 @@ Resources:
             
 Outputs:
   ActiveDirectory:
-    Value: !Ref MainAD
+    Value: !Ref SimpleAD
     Description: The ID of the new Active Directory 
