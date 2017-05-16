@@ -9,7 +9,6 @@ Metadata:
       Parameters:
       - OrganizationPrefix
       - LogBucketName
-      - KmsAdminUserName
 
 Parameters:
   OrganizationPrefix:
