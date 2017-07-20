@@ -29,7 +29,7 @@ Resources:
   LambdaBucket:
     Type: AWS::S3::Bucket
     Properties: 
-      AccessControl: PublicRead
+      AccessControl: Private
       BucketName: !Sub ${OrganizationPrefix}-${AWS::Region}-lambda
       LoggingConfiguration:
         DestinationBucketName: !Ref LogBucketName
