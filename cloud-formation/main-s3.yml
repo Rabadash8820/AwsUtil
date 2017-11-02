@@ -35,9 +35,9 @@ Resources:
   # S3 bucket for logs
   LogsBucket:
     Type: AWS::S3::Bucket
-      BucketName: !Sub ${OrganizationPrefix}-${AWS::Region}-logs
     Properties:
       AccessControl: LogDeliveryWrite
+      BucketName: !Sub ${OrganizationPrefix}-${AWS::Region}-bucket-logs
       LifecycleConfiguration:
         Rules:
         -
