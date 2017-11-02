@@ -47,6 +47,7 @@ Resources:
           Transitions: [{ StorageClass: STANDARD_IA, TransitionInDays: !Ref DaysToInfrequentAccess }]
       LoggingConfiguration:
         LogFilePrefix: log-bucket/
+      VersioningConfiguration: { Status: Suspended }
   LogsBucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
