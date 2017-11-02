@@ -56,7 +56,7 @@ Parameters:
     AllowedPattern: ^\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3}(\/\d{1,2})?$
     Description: This is the CIDR block from which SSH requests will be accepted.  You should only enter the CIDR block containing your bastion hosts.  Allowing SSH from ANY address (0.0.0.0/0) is strongly discouraged.
     ConstraintDescription: must be a valid CIDR block (e.g., 10.20.114.0/24)
-    
+
   PublicDns:
     Type: String
     Default: www.mycompany.com
@@ -161,9 +161,9 @@ Parameters:
     Type: String
     NoEcho: true
     Description: Password for the 'wordpress' user of the backend MySQL database.  This password can be left blank if not required (after all, anyone wishing to access the database will already have to have SSH and superuser privileges on the WordPress server).
-    
+
 Resources:
-  
+
   # Network ACL for the new public subnet(s)
   PubACL:
     Type: AWS::EC2::NetworkAcl
@@ -355,7 +355,7 @@ Resources:
       GroupId: !Ref WordPressSG
       IpProtocol: -1
       SourceSecurityGroupId: !Ref WordPressSG
-      
+
   # Define the new public subnet
   Subnet:
     Type: AWS::EC2::Subnet
@@ -374,7 +374,7 @@ Resources:
     Properties:
       NetworkAclId: !Ref PubACL
       SubnetId: !Ref Subnet
-      
+
   # Define the EC2 instance
   AmiLookup:
     Type: Custom::AmiLookup
@@ -457,7 +457,7 @@ Resources:
                 files:
                 - /etc/cfn/cfn-hup.conf
                 - /etc/cfn/hooks.conf
-                packages: 
+                packages:
                   yum: [ aws-cfn-bootstrap ]
         add-newline-to-bash:
           commands:
@@ -710,7 +710,7 @@ Resources:
                   echo Time zone is already \"$timeZone\"
                   exit 1
                 fi
-          
+
   # Set up DNS for the server
   EIPAssoc:
     Type: AWS::EC2::EIPAssociation
@@ -728,7 +728,7 @@ Resources:
       TTL: 60
       Comment: String
       # HealthCheckId: String
-      
+
 Outputs:
   WordPress:
     Value: !GetAtt WordPress.PublicIp

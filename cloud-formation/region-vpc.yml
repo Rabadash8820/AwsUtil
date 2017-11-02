@@ -25,7 +25,7 @@ Parameters:
 
 Conditions:
   CreateFlowLog: !Not [ !Equals [ !Ref FlowLogTrafficType, NONE ] ]
-    
+
 Resources:
   MainVPC:
     # The main VPC for this region
@@ -40,7 +40,7 @@ Resources:
     Properties:
       AmazonProvidedIpv6CidrBlock: true
       VpcId: !Ref MainVPC
-      
+
   # Internet Gateway association
   MainIGW:
     Type: AWS::EC2::InternetGateway
@@ -49,7 +49,7 @@ Resources:
     Properties:
       InternetGatewayId: !Ref MainIGW
       VpcId: !Ref MainVPC
-      
+
   # Route Table association
   PubRT:
     Type: AWS::EC2::RouteTable
@@ -61,7 +61,7 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref MainIGW
       RouteTableId: !Ref PubRT
-      
+
   # Flow Log association
   VpcFlowLog:
     Type: AWS::EC2::FlowLog
@@ -74,7 +74,7 @@ Resources:
       TrafficType : !Ref FlowLogTrafficType
   FlowLogGroup:
     Type: AWS::Logs::LogGroup
-    Properties: 
+    Properties:
       LogGroupName: !Sub ${AWS::StackName}-vpc-flow-logs
       RetentionInDays: 60
   FlowLogRole:
@@ -84,7 +84,7 @@ Resources:
       Path: !Sub /flow-log-roles/${AWS::StackName}/
       AssumeRolePolicyDocument:
         Version: 2012-10-17
-        Statement: 
+        Statement:
           - Effect: Allow
             Principal: { Service: vpc-flow-logs.amazonaws.com }
             Action: sts:AssumeRole

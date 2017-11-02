@@ -7,7 +7,7 @@ Resources:
     Type: AWS::EC2::EIP
     Properties:
       Domain: vpc
-      
+
 Outputs:
   ElasticIP:
     Value: !Ref ElasticIP

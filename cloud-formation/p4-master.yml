@@ -63,7 +63,7 @@ Parameters:
     AllowedPattern: ^\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3}(\/\d{1,2})?$
     Description: This is the CIDR block from which SSH requests will be accepted.  You should only enter the CIDR block containing your bastion hosts.  Allowing SSH from ANY address (0.0.0.0/0) is strongly discouraged.
     ConstraintDescription: must be a valid CIDR block (e.g., 10.5.114.0/24).
-    
+
   PublicDns:
     Type: String
     Default: p4.mycompany.com
@@ -97,7 +97,7 @@ Parameters:
     AllowedPattern: ^([0-9A-Za-z]+[._-]?)+[0-9A-Za-z]+@([0-9A-Za-z]+[._-]?)+\.[0-9A-Za-z]+$
     ConstraintDescription: must be a valid Email address, like "frodo@theshire.com".
     Description: Email to which notifications from automatic yum updates will be sent.  These notifications will only indicate that updates have been downloaded; the updates will still have to be installed manually.
-  
+
 Conditions:
   IngressCidr5: !Equals [ !Ref NumIngressCidrBlocks, 5 ]
   IngressCidr4: !Or [ !Equals [ !Ref NumIngressCidrBlocks, 4 ], !Condition IngressCidr5]
@@ -105,7 +105,7 @@ Conditions:
   IngressCidr2: !Or [ !Equals [ !Ref NumIngressCidrBlocks, 2 ], !Condition IngressCidr3]
   IngressCidr1: !Or [ !Equals [ !Ref NumIngressCidrBlocks, 1 ], !Condition IngressCidr2]
   FreeTier: !Equals [ !Ref UseFreeTier, true ]
-    
+
 Resources:
   # Define the new public subnet
   Subnet:
@@ -125,7 +125,7 @@ Resources:
     Properties:
       NetworkAclId: !Ref PubACL
       SubnetId: !Ref Subnet
-      
+
   # Define the EC2 instance
   AmiLookup:
     Type: Custom::AmiLookup
@@ -156,26 +156,26 @@ Resources:
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
-          
+
           # Add a newline to the ec2-user prompt string
           echo
           echo Adding a new line to the bash prompt...
           echo PS1="\"\\n\$PS1\"">> /home/ec2-user/.bashrc
           echo Success!
-          
+
           # Adjust time zone
           echo
           echo Adjusting time zone to ${TimeZone}...
           sed -ir "s|ZONE=\"UTC\"|ZONE=\"${TimeZone}\"|" /etc/sysconfig/clock
           ln -sf /usr/share/zoneinfo/${TimeZone} /etc/localtime
           echo Success!
-          
+
           # Adjust hostname to match the provided public DNS name
           echo
           echo Adjusting HOSTNAME to match the provided public DNS name
           sed -i "s|HOSTNAME=localhost.localdomain|HOSTNAME=${PublicDns}|" /etc/sysconfig/network
           echo Success!
-          
+
           # Install yum-cron to do automatic yum updates
           # and postfix (a secure Mail Transfer Agent) and mailx to do email notifications
           echo
@@ -185,7 +185,7 @@ Resources:
           yum install -y -q postfix     # -y and -q options must be separated for yum
           yum install -y -q mailx
           echo Success!
-          
+
           # Configure hourly security updates and daily complete updates
           cat > yum-cron-conf.sed <<- EOB
           s|update_messages = no|update_messages = yes|
@@ -204,7 +204,7 @@ Resources:
           sed -i -f yum-cron-conf.sed /etc/yum/yum-cron.conf
           rm yum-cron-conf.sed
           echo Success!
-          
+
           # Make sure yum-cron and postfix start after all future reboots
           echo
           echo Registering yum-cron to start on every reboot...
@@ -212,14 +212,14 @@ Resources:
           echo Registering postfix to start on every reboot...
           chkconfig postfix on
           echo Success!
-          
+
           # Clean yum and reboot to make sure everything's cool B)
           echo
           echo Rebooting...
           yum clean all
           reboot
           echo Success!
-          
+
   # Give it a public DNS hostname
   CnameRecordSet:
     Type: AWS::Route53::RecordSet
@@ -231,7 +231,7 @@ Resources:
       TTL: 60
       Comment: String
       # HealthCheckId: String
-  
+
   # Place an Elastic File System in the new subnet
   SharedFileSystem:
     Type: AWS::EFS::FileSystem
@@ -256,7 +256,7 @@ Resources:
       IpProtocol: tcp
       FromPort: 2049
       ToPort: 2049
-  
+
   # Network ACL for the new public subnet(s)
   PubACL:
     Type: AWS::EC2::NetworkAcl
@@ -476,7 +476,7 @@ Resources:
       Protocol: 6
       PortRange: { From: 1666, To: 1666 }
       CidrBlock: !Select [ 4, !Ref IngressCidrBlocks ]
-      
+
   # Security Group for the Perforce master server
   PerforceSG:
     Type: AWS::EC2::SecurityGroup
@@ -527,7 +527,7 @@ Resources:
       GroupId: !Ref PerforceSG
       IpProtocol: -1
       SourceSecurityGroupId: !Ref PerforceSG
-        
+
   # SSH/RDP ingress security group rules
   SshIngressSgRule:
     Type: AWS::EC2::SecurityGroupIngress
@@ -582,7 +582,7 @@ Resources:
       IpProtocol: tcp
       FromPort: 1666
       ToPort: 1666
-  
+
   # SSH/RDP egress security group rules
   SshEgressSgRule:
     Type: AWS::EC2::SecurityGroupEgress
@@ -637,7 +637,7 @@ Resources:
       IpProtocol: tcp
       FromPort: 1666
       ToPort: 1666
-          
+
 Outputs:
   P4NetworkACL:
     Value: !Ref PubACL

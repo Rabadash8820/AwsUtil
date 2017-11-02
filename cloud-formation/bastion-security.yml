@@ -51,7 +51,7 @@ Parameters:
     Default: 10.0.0.0/16
     Description: An array of CIDR blocks that are separated by commas.  These are the actual CIDR blocks to which SSH requests may be sent.  Allowing SSH to ANY address (0.0.0.0/0) is strongly discouraged.  The total number of CIDR blocks should be one more than the total number of commas, and must match the number entered in NumEgressCidrBlocks.
     ConstraintDescription: must be a comma-delimited list of valid CIDR blocks (e.g., 10.20.114.0/24), with no comma after the last item.
-  
+
 Conditions:
   UseSsh: !Or [ !Equals [ !Ref ConnectProtocol, "Secure Shell (SSH)" ], !Equals [ !Ref ConnectProtocol, "Both" ] ]
   SshIngressCidr5: !And [ !Condition UseSsh, !Equals [ !Ref NumIngressCidrBlocks, 5 ] ]
@@ -64,7 +64,7 @@ Conditions:
   SshEgressCidr3: !And [ !Condition UseSsh, !Or [ !Equals [ !Ref NumEgressCidrBlocks, 3 ], !Condition SshEgressCidr4] ]
   SshEgressCidr2: !And [ !Condition UseSsh, !Or [ !Equals [ !Ref NumEgressCidrBlocks, 2 ], !Condition SshEgressCidr3] ]
   SshEgressCidr1: !And [ !Condition UseSsh, !Or [ !Equals [ !Ref NumEgressCidrBlocks, 1 ], !Condition SshEgressCidr2] ]
-  
+
   UseRdp: !Or [ !Equals [ !Ref ConnectProtocol, "Remote Desktop (RDP)" ], !Equals [ !Ref ConnectProtocol, "Both" ] ]
   RdpIngressCidr5: !And [ !Condition UseRdp, !Equals [ !Ref NumIngressCidrBlocks, 5 ] ]
   RdpIngressCidr4: !And [ !Condition UseRdp, !Or [ !Equals [ !Ref NumIngressCidrBlocks, 4 ], !Condition RdpIngressCidr5] ]
@@ -76,9 +76,9 @@ Conditions:
   RdpEgressCidr3: !And [ !Condition UseRdp, !Or [ !Equals [ !Ref NumEgressCidrBlocks, 3 ], !Condition RdpEgressCidr4] ]
   RdpEgressCidr2: !And [ !Condition UseRdp, !Or [ !Equals [ !Ref NumEgressCidrBlocks, 2 ], !Condition RdpEgressCidr3] ]
   RdpEgressCidr1: !And [ !Condition UseRdp, !Or [ !Equals [ !Ref NumEgressCidrBlocks, 1 ], !Condition RdpEgressCidr2] ]
-    
+
 Resources:
-  
+
   # Network ACL for the new public subnet(s)
   PubACL:
     Type: AWS::EC2::NetworkAcl
@@ -418,7 +418,7 @@ Resources:
       Protocol: 6
       PortRange: { From: 3389, To: 3389 }
       CidrBlock: !Select [ 4, !Ref EgressCidrBlocks ]
-      
+
   # Security Group for the bastion hosts
   BastionSG:
     Type: AWS::EC2::SecurityGroup
@@ -469,7 +469,7 @@ Resources:
       GroupId: !Ref BastionSG
       IpProtocol: -1
       SourceSecurityGroupId: !Ref BastionSG
-        
+
   # SSH/RDP ingress security group rules
   SshIngressSgRule1:
     Type: AWS::EC2::SecurityGroupIngress
@@ -561,7 +561,7 @@ Resources:
       IpProtocol: tcp
       FromPort: 3389
       ToPort: 3389
-  
+
   # SSH/RDP egress security group rules
   SshEgressSgRule1:
     Type: AWS::EC2::SecurityGroupEgress
@@ -653,7 +653,7 @@ Resources:
       IpProtocol: tcp
       FromPort: 3389
       ToPort: 3389
-          
+
 Outputs:
   BastionNetworkACL:
     Value: !Ref PubACL

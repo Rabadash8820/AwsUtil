@@ -3,7 +3,7 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: An S3 bucket for bucket access logs
 
 Metadata:
-  AWS::CloudFormation::Interface: 
+  AWS::CloudFormation::Interface:
     ParameterGroups:
     -
       Parameters:
@@ -14,7 +14,7 @@ Metadata:
 Parameters:
   OrganizationPrefix:
     Type: String
-    Default: "mycompany"
+    Default: mycompany
     AllowedPattern: ^[\w+=,.@-]*$
     Description: A prefix to append to all bucket names and IAM principals (e.g., "mycompany")
     ConstraintDescription: "must be a string of upper and lowercase alphanumeric characters with no spaces, and any of the following characters: =,.@-.  Note that group names are not distinguished by case."
@@ -35,17 +35,16 @@ Resources:
   # S3 bucket for logs
   LogsBucket:
     Type: AWS::S3::Bucket
-    Properties: 
-      AccessControl: LogDeliveryWrite  # Required by CloudFormation apparently?
       BucketName: !Sub ${OrganizationPrefix}-${AWS::Region}-logs
+    Properties:
+      AccessControl: LogDeliveryWrite
       LifecycleConfiguration:
         Rules:
         -
           Id: TransitionExpireLogs
           Status: Enabled
           ExpirationInDays: !Ref DaysToExpire
-          Transitions:
-          - { StorageClass: STANDARD_IA, TransitionInDays: !Ref DaysToInfrequentAccess }
+          Transitions: [{ StorageClass: STANDARD_IA, TransitionInDays: !Ref DaysToInfrequentAccess }]
       LoggingConfiguration:
         LogFilePrefix: log-bucket/
   LogsBucketPolicy:
@@ -55,15 +54,14 @@ Resources:
       PolicyDocument:
         Version: 2012-10-17
         Statement:
-          - # Allow anybody to do any S3 action on the Logs bucket, as long as they use TLS/SSL
-            Sid: AnyS3ActionOverSSL
-            Effect: Allow
-            Principal: { AWS: !Ref "AWS::AccountId" }
-            Action: s3:*
-            Resource: !Sub arn:aws:s3:::${OrganizationPrefix}-${AWS::Region}-logs
-            Condition:
-              Bool: { "aws:SecureTransport": true }
-        
+        - # Allow anybody to do any S3 action on the Logs bucket, as long as they use TLS/SSL
+          Sid: AnyS3ActionOverSSL
+          Effect: Allow
+          Principal: { AWS: !Ref "AWS::AccountId" }
+          Action: s3:*
+          Resource: !Sub arn:aws:s3:::${OrganizationPrefix}-${AWS::Region}-bucket-logs
+          Condition: { Bool: { "aws:SecureTransport": true }}
+
 Outputs:
   LogsBucket:
     Value: !Ref LogsBucket

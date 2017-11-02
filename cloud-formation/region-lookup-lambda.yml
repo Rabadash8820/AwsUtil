@@ -3,13 +3,13 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: Returns AMIs and other values that are specific to the requested AWS Region.
 
 Metadata:
-  AWS::CloudFormation::Interface: 
+  AWS::CloudFormation::Interface:
     ParameterGroups:
     -
       Parameters:
       - LambdaS3Bucket
       - S3Key
-  
+
 Parameters:
   LambdaS3Bucket:
     Type: String

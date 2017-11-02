@@ -3,7 +3,7 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: An S3 bucket for Lambda functions
 
 Metadata:
-  AWS::CloudFormation::Interface: 
+  AWS::CloudFormation::Interface:
     ParameterGroups:
     -
       Parameters:
@@ -41,15 +41,14 @@ Resources:
       PolicyDocument:
         Version: 2012-10-17
         Statement:
-          - # Allow anybody to do any S3 action on the Lambda bucket, as long as they use TLS/SSL
-            Sid: AnyS3ActionOverSSL
-            Effect: Allow
-            Principal: { AWS: !Ref "AWS::AccountId" }
-            Action: s3:*
-            Resource: !Sub arn:aws:s3:::${OrganizationPrefix}-${AWS::Region}-lambda
-            Condition:
-              Bool: { "aws:SecureTransport": true }
-        
+        - # Allow anybody to do any S3 action on the Lambda bucket, as long as they use TLS/SSL
+          Sid: AnyS3ActionOverSSL
+          Effect: Allow
+          Principal: { AWS: !Ref "AWS::AccountId" }
+          Action: s3:*
+          Resource: !Sub arn:aws:s3:::${OrganizationPrefix}-${AWS::Region}-lambda
+          Condition: { Bool: { "aws:SecureTransport": true }}
+
 Outputs:
   LambdaS3Bucket:
     Value: !Ref LambdaBucket
