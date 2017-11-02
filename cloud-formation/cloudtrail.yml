@@ -1,0 +1,105 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: A CloudTrail trail to audit account activity
+
+Metadata:
+  AWS::CloudFormation::Interface: 
+    ParameterGroups:
+    -
+      Parameters:
+      - OrganizationPrefix
+      - DaysToInfrequentAccess
+      - DaysToExpire
+
+Parameters:
+  OrganizationPrefix:
+    Type: String
+    Default: mycompany
+    AllowedPattern: ^[\w+=,.@-]*$
+    Description: A prefix to append to all bucket names (e.g., "mycompany")
+    ConstraintDescription: "must be a string of upper and lowercase alphanumeric characters with no spaces, and any of the following characters: =,.@-."
+  DaysToInfrequentAccess:
+    Type: Number
+    Default: 30
+    MinValue: 0
+    Description: Indicates the number of days after creation when log objects are transitioned to the Infrequent Access storage class.  A value of zero will transition objects immediately.
+    ConstraintDescription: must be a non-negative integer.
+  DaysToExpire:
+    Type: Number
+    Default: 60
+    MinValue: 0
+    Description: Indicates the number of days after creation when log objects are deleted from Amazon S3 and Amazon Glacier.  Must be longer than the DaysToInfrequentAccess time.
+    ConstraintDescription: must be a non-negative integer.
+  LogBucketName:
+    Type: String
+    Default: mycompany-region-bucket-logs
+    AllowedPattern: ^[a-z0-9.-]+$
+    Description: The name of the bucket to which the CloudTrail S3 bucket will store logs.
+    ConstraintDescription: must contain only lowercase letters, numbers, periods (.), and dashes (-).
+
+Resources:
+  # The CloudTrail trail
+  CloudTrail:
+    Type: AWS::CloudTrail::Trail
+    DependsOn: CloudTrailBucketPolicy
+    Properties:
+      #CloudWatchLogsLogGroupArn: String
+      #CloudWatchLogsRoleArn: String
+      EnableLogFileValidation: true
+      EventSelectors:
+      - DataResources: [{ Type: "AWS::S3::Object", Values: [ "arn:aws:s3:::" ] }]   # All current and future S3 objects
+        IncludeManagementEvents: true
+        ReadWriteType: All
+      IncludeGlobalServiceEvents: true
+      IsLogging: true
+      IsMultiRegionTrail: true
+      #KMSKeyId:
+      S3BucketName: !Ref CloudTrailBucket
+      #S3KeyPrefix: String
+      #SnsTopicName: String
+      TrailName: !Ref OrganizationPrefix
+
+  # S3 bucket for CloudTrail logs
+  CloudTrailBucket:
+    Type: AWS::S3::Bucket
+    Properties: 
+      AccessControl: Private
+      BucketName: !Sub ${OrganizationPrefix}-${AWS::Region}-cloudtrail
+      LifecycleConfiguration:
+        Rules:
+        -
+          Id: TransitionExpireLogs
+          Status: Enabled
+          ExpirationInDays: !Ref DaysToExpire
+          Transitions:
+          - { StorageClass: STANDARD_IA, TransitionInDays: !Ref DaysToInfrequentAccess }
+      LoggingConfiguration:
+        DestinationBucketName: !Ref LogBucketName
+        LogFilePrefix: cloudtrail/
+      VersioningConfiguration: { Status: Suspended }
+  CloudTrailBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref CloudTrailBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        -
+          Sid: CloudTrailAclCheck
+          Effect: Allow
+          Principal: { Service: cloudtrail.amazonaws.com }
+          Action: s3:GetBucketAcl
+          Resource: !GetAtt CloudTrailBucket.Arn
+        -
+          Sid: CloudTrailWrite
+          Effect: Allow
+          Principal: { Service: cloudtrail.amazonaws.com }
+          Action: s3:PutObject
+          Resource: !Sub ${CloudTrailBucket.Arn}/AWSLogs/${AWS::AccountId}/*
+          Condition: { StringEquals: { "s3:x-amz-acl": bucket-owner-full-control }}
+
+Outputs:
+  CloudTrail:
+    Value: !Ref CloudTrail
+    Description: Name of the new CloudTrail trail that monitors this account.
+    Export: { Name: CloudTrail }
