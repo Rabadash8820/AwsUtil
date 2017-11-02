@@ -13,7 +13,8 @@ This is the order in which you should create stacks from the various CloudFormat
 1. Set up services
    - **region-vpc**:  creates a VPC with an Internet Gateway, and may be placed in any Region, any number of times.
    - **main-s3**:  creates an S3 bucket to store logs from other buckets for the organization.  Should only be created once per AWS account.
-   - **main-lambda**:  creates an S3 bucket to store Lambda deployment packages for the organization.  Should only be created once per AWS account, and must be created _after_ the `main-s3` stack so that the bucket can be logged.
+   - **cloudtrail**:  creates a CloudTrail trail that monitors all AWS and S3 API access.  Should only be created once per AWS account, and must be created *after* the `main-s3` stack so that the bucket can be logged.
+   - **main-lambda**:  creates an S3 bucket to store Lambda deployment packages for the organization.  Should only be created once per AWS account, and must be created *after* the `main-s3` stack so that the bucket can be logged.
    
 2. Set up organization directory
    - **active-directory**:  creates a Samba 4 Active Directory Compatible Server (a smaller, cheaper solution to Microsoft Active Directory.  It takes a reference to one of the `region-vpc` stacks created above as a parameter, and must be placed in the same region as one of those stacks.
