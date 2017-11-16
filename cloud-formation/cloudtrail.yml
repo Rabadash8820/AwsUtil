@@ -32,7 +32,7 @@ Parameters:
   DaysToExpire:
     Type: Number
     Default: 60
-    MinValue: 0
+    AllowedValues: [1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 3653 ]     # Since we're using this parameter for the LogGroup RetentionInDays property also, we can only allow these values.  See https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_PutRetentionPolicy.html
     Description: Indicates the number of days after creation when log objects are deleted from Amazon S3 and CloudWatch log groups.  Must be longer than DaysToInfrequentAccess.
     ConstraintDescription: must be a non-negative integer.
   LogBucketName:
