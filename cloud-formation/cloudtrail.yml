@@ -48,8 +48,8 @@ Resources:
     Type: AWS::CloudTrail::Trail
     DependsOn: CloudTrailBucketPolicy
     Properties:
-      #CloudWatchLogsLogGroupArn: String
-      #CloudWatchLogsRoleArn: String
+      CloudWatchLogsLogGroupArn: !GetAtt LogGroup.Arn
+      CloudWatchLogsRoleArn: !GetAtt LogGroupRole.Arn
       EnableLogFileValidation: true
       EventSelectors:
       - DataResources: [{ Type: "AWS::S3::Object", Values: [ "arn:aws:s3:::" ] }]   # All current and future S3 objects
@@ -63,6 +63,38 @@ Resources:
       #S3KeyPrefix: String
       #SnsTopicName: String
       TrailName: !Ref OrganizationPrefix
+      
+  # The CloudWatch LogGroup that will receive CloudTrail logs
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: cloudtrail-logs
+      RetentionInDays: !Ref DaysToExpire
+  LogGroupRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: cloudtrail-log-group-role
+      Path: /cloudtrail-log-group-role/
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - # Allow the CloudTrail service to assume this role
+          Sid: AssumeRole
+          Effect: Allow
+          Principal: { Service: cloudtrail.amazonaws.com }
+          Action: sts:AssumeRole
+      Policies:
+      - PolicyName: cloudtrail-log-group-role
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - # Allows this role to create log streams in the new log group, and write log events to them
+            Sid: WriteCloudTrailLogEvents
+            Effect: Allow
+            Action:
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource: !Sub arn:aws:logs:us-east-2:${AWS::AccountId}:log-group:${LogGroup}:log-stream:${AWS::AccountId}_CloudTrail_*
 
   # S3 bucket for CloudTrail logs
   CloudTrailBucket:
