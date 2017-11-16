@@ -22,13 +22,13 @@ Parameters:
     Type: Number
     Default: 30
     MinValue: 0
-    Description: Indicates the number of days after creation when log objects are transitioned to the Infrequent Access storage class.  A value of zero will transition objects immediately.
+    Description: Indicates the number of days after creation when log objects are transitioned to the Infrequent Access storage class.  A value of zero will transition objects immediately.  Must be smaller than DaysToExpire.
     ConstraintDescription: must be non-negative integer.
   DaysToExpire:
     Type: Number
     Default: 60
     MinValue: 0
-    Description: Indicates the number of days after creation when log objects are deleted from Amazon S3 and Amazon Glacier.  Must be longer than the DaysToInfrequentAccess time.
+    Description: Indicates the number of days after creation when log objects are deleted from Amazon S3.  Must be longer than DaysToInfrequentAccess.
     ConstraintDescription: must be non-negative integer.
 
 Resources:
