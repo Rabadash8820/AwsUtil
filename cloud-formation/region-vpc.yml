@@ -85,7 +85,9 @@ Resources:
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
-          - Effect: Allow
+          - # Allow the VPC service to assume this role
+            Sid: AssumeRole
+            Effect: Allow
             Principal: { Service: vpc-flow-logs.amazonaws.com }
             Action: sts:AssumeRole
       Policies:
@@ -93,7 +95,9 @@ Resources:
         PolicyDocument:
           Version: 2012-10-17
           Statement:
-          - Effect: Allow
+          - # Allows this role to create log streams in the new log group, and write log events to them
+            Sid: WriteFlowLogEvents
+            Effect: Allow
             Action:
             - logs:CreateLogStream
             - logs:PutLogEvents

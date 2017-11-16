@@ -44,19 +44,23 @@ Resources:
   LambdaExecutionRole:
     Type: AWS::IAM::Role
     Properties:
+      RoleName: region-lookup-lambda-role
+      Path: /region-lookup-lambda-role/
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
-        - Effect: Allow
+        - # Allow the Lambda service to assume this role
+          Sid: AssumeRole
+          Effect: Allow
           Principal: { Service: lambda.amazonaws.com }
           Action: sts:AssumeRole
-      Path: /region-lookup-lambda-role/
       Policies:
       - PolicyName: region-lookup-lambda-role
         PolicyDocument:
           Version: 2012-10-17
           Statement:
-          - # Allow sending logs
+          - # Allow sending logs to a log group
+            Sid: SendLogs
             Effect: Allow
             Action:
             - logs:CreateLogGroup
@@ -64,6 +68,7 @@ Resources:
             - logs:PutLogEvents
             Resource: arn:aws:logs:*:*:*
           - # Allow describing EC2 images, so we can find the latest AMI image IDs!
+            Sid: LambdaDescribeImages
             Effect: Allow
             Action: ec2:DescribeImages
             Resource: "*"
