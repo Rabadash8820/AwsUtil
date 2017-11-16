@@ -18,6 +18,11 @@ Parameters:
     AllowedPattern: ^[\w+=,.@-]*$
     Description: A prefix to append to all bucket names (e.g., "mycompany")
     ConstraintDescription: "must be a string of upper and lowercase alphanumeric characters with no spaces, and any of the following characters: =,.@-."
+  KMSKeyAlias:
+    Type: String
+    AllowedPattern: ^[a-zA-Z0-9/_-]{1,32}$
+    Description: The alias name of the AWS Key Management Service (AWS KMS) key that CloudTrail will use to encrypt logs.  You will then need to grant IAM principals the necessary permissions to decrypt CloudTrail logs with this key.  Do not prefix the alias with "alias/".
+    ConstraintDescription: "must be a string of 1-32 characters not beginning with 'aws'.  Allowed characters are upper and lowercase alphanumeric characters and any of the following: -/_"
   DaysToInfrequentAccess:
     Type: Number
     Default: 30
@@ -53,7 +58,7 @@ Resources:
       IncludeGlobalServiceEvents: true
       IsLogging: true
       IsMultiRegionTrail: true
-      #KMSKeyId:
+      KMSKeyId: !Sub alias/${KMSKeyAlias}
       S3BucketName: !Ref CloudTrailBucket
       #S3KeyPrefix: String
       #SnsTopicName: String
