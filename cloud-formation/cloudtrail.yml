@@ -101,7 +101,7 @@ Resources:
     Type: AWS::S3::Bucket
     Properties: 
       AccessControl: Private
-      BucketName: !Sub ${OrganizationPrefix}-${AWS::Region}-cloudtrail
+      BucketName: !Sub ${OrganizationPrefix}-cloudtrail
       LifecycleConfiguration:
         Rules:
         -
