@@ -15,6 +15,7 @@ This is the order in which you should create stacks from the various CloudFormat
    - **main-s3**:  creates an S3 bucket to store logs from other buckets for the organization.  Should only be created once per AWS account.
    - **cloudtrail**:  creates a CloudTrail trail that monitors all AWS and S3 API access.  Should only be created once per AWS account, and must be created *after* the `main-s3` stack so that the bucket containing CloudTrail logs can itself be logged.
    - **main-lambda**:  creates an S3 bucket to store Lambda deployment packages for the organization.  Should only be created once per AWS account, and must be created *after* the `main-s3` stack so that the bucket containing Lambda deployment packages can be logged.
+   - **cloudfront-logs**:  creates an S3 bucket to store logs from the organization's CloudFront distributions.  Should only be created once per AWS account, and must be created *after* the `main-s3` stack so that the bucket containing CloudFront logs can itself be logged.
    
 2. Set up organization directory
    - **active-directory**:  creates a Samba 4 Active Directory Compatible Server (a smaller, cheaper solution to Microsoft Active Directory.  It takes a reference to one of the `region-vpc` stacks created above as a parameter, and must be placed in the same region as one of those stacks.
