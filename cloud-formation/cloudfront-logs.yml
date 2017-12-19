@@ -1,0 +1,57 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: An S3 bucket for storing CloudFront logs
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    -
+      Parameters:
+      - OrganizationPrefix
+      - LogBucketName
+
+Parameters:
+  OrganizationPrefix:
+    Type: String
+    Default: mycompany
+    AllowedPattern: ^[\w+=,.@-]*$
+    Description: A prefix to append to all bucket names and IAM principals (e.g., "mycompany")
+    ConstraintDescription: "must be a string of upper and lowercase alphanumeric characters with no spaces, and any of the following characters: =,.@-.  Note that group names are not distinguished by case."
+  LogBucketName:
+    Type: String
+    Default: mycompany-bucket-logs
+    AllowedPattern: ^[a-z0-9.-]+$
+    Description: The name of the S3 bucket to which the CloudFront logs bucket will store its access logs.
+    ConstraintDescription: must contain only lowercase letters, numbers, periods (.), and dashes (-).
+
+Resources:
+  # S3 bucket for CloudFront logs
+  CloudFrontBucket:
+    Type: AWS::S3::Bucket
+    Properties: 
+      AccessControl: Private
+      BucketName: !Sub ${OrganizationPrefix}-cloudfront-logs
+      LoggingConfiguration:
+        DestinationBucketName: !Ref LogBucketName
+        LogFilePrefix: cloudfront-logs/
+      VersioningConfiguration: { Status: Suspended }
+  CloudFrontBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref CloudFrontBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - # Allow any IAM user to do any S3 action on the logs bucket, as long as they use TLS/SSL
+          Sid: AnyS3ActionOverSSL
+          Effect: Allow
+          Principal: { AWS: !Ref "AWS::AccountId" }
+          Action: s3:*
+          Resource: !Sub ${CloudFrontBucket.Arn}/*
+          Condition: { Bool: { "aws:SecureTransport": true }}
+
+Outputs:
+  CloudFrontBucket:
+    Value: !Ref CloudFrontBucket
+    Description: Name of the new S3 bucket for CloudFront logs.
+    Export: { Name: CloudFrontBucket }
