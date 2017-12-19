@@ -37,7 +37,7 @@ Parameters:
     ConstraintDescription: must be a non-negative integer.
   LogBucketName:
     Type: String
-    Default: mycompany-region-bucket-logs
+    Default: mycompany-bucket-logs
     AllowedPattern: ^[a-z0-9.-]+$
     Description: The name of the bucket to which the CloudTrail S3 bucket will store logs.
     ConstraintDescription: must contain only lowercase letters, numbers, periods (.), and dashes (-).

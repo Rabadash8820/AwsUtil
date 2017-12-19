@@ -13,7 +13,7 @@ Metadata:
 Parameters:
   LambdaS3Bucket:
     Type: String
-    Default: mycompany-region-lambda
+    Default: mycompany-lambda
     MinLength: 3
     MaxLength: 63
     AllowedPattern: ^[0-9A-Za-z\.\-_]*(?<!\.)$
