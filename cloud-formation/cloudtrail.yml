@@ -52,7 +52,8 @@ Resources:
       CloudWatchLogsRoleArn: !GetAtt LogGroupRole.Arn
       EnableLogFileValidation: true
       EventSelectors:
-      - DataResources: [{ Type: "AWS::S3::Object", Values: [ "arn:aws:s3:::" ] }]   # All current and future S3 objects
+      - DataResources:
+        - { Type: "AWS::S3::Object", Values: [ "arn:aws:s3:::" ] }   # All current and future S3 objects
         IncludeManagementEvents: true
         ReadWriteType: All
       IncludeGlobalServiceEvents: true
@@ -60,10 +61,8 @@ Resources:
       IsMultiRegionTrail: true
       KMSKeyId: !Sub alias/${KMSKeyAlias}
       S3BucketName: !Ref CloudTrailBucket
-      #S3KeyPrefix: String
-      #SnsTopicName: String
       TrailName: !Ref OrganizationPrefix
-      
+
   # The CloudWatch LogGroup that will receive CloudTrail logs
   LogGroup:
     Type: AWS::Logs::LogGroup
@@ -94,7 +93,7 @@ Resources:
             Action:
             - logs:CreateLogStream
             - logs:PutLogEvents
-            Resource: !Sub arn:aws:logs:us-east-2:${AWS::AccountId}:log-group:${LogGroup}:log-stream:${AWS::AccountId}_CloudTrail_*
+            Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${LogGroup}:log-stream:${AWS::AccountId}_CloudTrail_*        # Log Stream naming convention taken from the docs page "CloudWatch Log Group and Log Stream Naming for CloudTrail"
 
   # S3 bucket for CloudTrail logs
   CloudTrailBucket:
