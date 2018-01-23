@@ -1,0 +1,68 @@
+{
+  "Version": "2012-10-17",
+  "Id": "cloudtrail-encryption",
+  "Statement": [
+    {
+      "Sid": "Allow the root user to manage this key.  Also enables IAM policies to grant access to this key.",
+      "Effect": "Allow",
+      "Principal": { "AWS": "arn:aws:iam::${AWS::AccountId}:root" },
+      "Action": "kms:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "Allow specific users to be Key Administrators",
+      "Effect": "Allow",
+      "Principal": { "AWS": "arn:aws:iam::${AWS::AccountId}:user/${AWS::Username}" },
+      "Action": [
+        "kms:Create*",
+        "kms:Describe*",
+        "kms:Enable*",
+        "kms:List*",
+        "kms:Put*",
+        "kms:Update*",
+        "kms:Revoke*",
+        "kms:Disable*",
+        "kms:Get*",
+        "kms:Delete*",
+        "kms:TagResource",
+        "kms:UntagResource",
+        "kms:ScheduleKeyDeletion",
+        "kms:CancelKeyDeletion"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "Allow CloudTrail to describe this key",
+      "Effect": "Allow",
+      "Principal": { "Service": "cloudtrail.amazonaws.com" },
+      "Action": "kms:DescribeKey",
+      "Resource": "*"
+    },
+    {
+      "Sid": "Allow CloudTrail trails in this account to encrypt logs",
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "cloudtrail.amazonaws.com"
+      },
+      "Action": "kms:GenerateDataKey*",
+      "Resource": "*",
+      "Condition": {
+        "StringLike": {
+          "kms:EncryptionContext:aws:cloudtrail:arn": "arn:aws:cloudtrail:*:${AWS::AccountId}:trail/*"
+        }
+      }
+    },
+    {
+      "Sid": "Allow specific users to decrypt CloudTrail logs with this key",
+      "Effect": "Allow",
+      "Principal": { "AWS": "arn:aws:iam::${AWS::AccountId}:user/${AWS::Username}" },
+      "Action": "kms:Decrypt",
+      "Resource": "*",
+      "Condition": {
+        "StringLike": {
+          "kms:EncryptionContext:aws:cloudtrail:arn": "arn:aws:cloudtrail:*:${AWS::AccountId}:trail/*"
+        }
+      }
+    }
+  ]
+}

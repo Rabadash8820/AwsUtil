@@ -13,7 +13,7 @@ This is the order in which you should create stacks from the various CloudFormat
 1. Set up services
    - **region-vpc**:  creates a VPC with an Internet Gateway, and may be placed in any Region, any number of times.
    - **main-s3**:  creates an S3 bucket to store logs from other buckets for the organization.  Should only be created once per AWS account.
-   - **cloudtrail**:  creates a CloudTrail trail that monitors all AWS and S3 API access.  Should only be created once per AWS account, and must be created *after* the `main-s3` stack so that the bucket containing CloudTrail logs can itself be logged.
+   - **cloudtrail**:  creates a CloudTrail trail that monitors all AWS and S3 API access.  Should only be created once per AWS account, and must be created *after* the `main-s3` stack so that the bucket containing CloudTrail logs can itself be logged.  Must also be created after the KMS key that will be used to encrypt the CloudTrail logs.  That key requires special permissions to work correctly, so you can use [this](iam-policies/cloudtrail-logs-encryption.keypolicy) key policy as a template, substituting in the appropriate values for `${AWS::AccountId}` and `${AWS::Username}`.
    - **main-lambda**:  creates an S3 bucket to store Lambda deployment packages for the organization.  Should only be created once per AWS account, and must be created *after* the `main-s3` stack so that the bucket containing Lambda deployment packages can be logged.
    - **cloudfront-logs**:  creates an S3 bucket to store logs from the organization's CloudFront distributions.  Should only be created once per AWS account, and must be created *after* the `main-s3` stack so that the bucket containing CloudFront logs can itself be logged.
    
