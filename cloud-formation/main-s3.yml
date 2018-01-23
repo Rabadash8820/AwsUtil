@@ -60,7 +60,7 @@ Resources:
           Effect: Allow
           Principal: { AWS: !Ref "AWS::AccountId" }
           Action: s3:*
-          Resource: !Sub ${LogsBucket.Arn}-bucket-logs
+          Resource: !GetAtt LogsBucket.Arn
           Condition: { Bool: { "aws:SecureTransport": true }}
 
 Outputs:
