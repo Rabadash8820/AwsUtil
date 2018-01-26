@@ -2,34 +2,31 @@
 
 function configureAgent() {
 
-    cd /home/ec2-user;
-
-    # Download dotnet binaries and add them to PATH
-    mkdir dotnet;
-    cd dotnet;
-    echo Downloading .NET Core...
-    local dotnetTarball=dotnet.tar.gz
-    curl --fail --location --output "$dotnetTarball" https://download.microsoft.com/download/5/F/0/5F0362BD-7D0A-4A9D-9BF9-022C6B15B04D/dotnet-runtime-2.0.0-linux-x64.tar.gz ;
-    echo Download complete.
-    echo Extracting .NET Core...
-    tar --gzip --extract --file="$dotnetTarball";
-    rm "$dotnetTarball";
-    echo Extraction complete
-    export PATH=$PATH:$(pwd);
-    echo .NET Core added to PATH
+    cd /home/ubuntu;
 
     # Download the VSTS agent binaries
     printf "\n";
-    mkdir ../vstsagent;
-    cd ../vstsagent;
+    mkdir vstsagent;
+    cd vstsagent;
+    local tarball=vssagent.tar.gz;
     echo Downloading the VSTS agent binaries...
-    local agentTarball=vstsagent.tar.gz
-    curl --fail --insecure --location --output "$agentTarball" https://vstsagentpackage.azureedge.net/agent/2.126.0/vsts-agent-linux-x64-2.126.0.tar.gz;
+    curl --silent --show-error --fail --insecure --location --output "$tarball" https://vstsagentpackage.azureedge.net/agent/2.126.0/vsts-agent-linux-x64-2.126.0.tar.gz;
     echo Download complete
     echo Extracting VSTS agent binaries...
-    tar --gzip --extract --file="$agentTarball";
-    rm "$agentTarball";
+    tar --gzip --extract --file "$tarball";
+    rm "$tarball";
     echo Extraction complete
+
+    # Install agent dependencies
+    printf "\n";
+    echo Installing dependencies \(as root\)...
+    curl --silent --show-error --fail --location https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microsoft.gpg;
+    sudo mv microsoft.gpg /etc/apt/trusted.gpg.d/microsoft.gpg
+    sudo sh -c 'echo "deb [arch=amd64] https://packages.microsoft.com/repos/microsoft-ubuntu-xenial-prod xenial main" > /etc/apt/sources.list.d/dotnetdev.list'   # for Ubuntu 16.4 (xenial)
+    sudo apt-get update
+    sudo apt-get install dotnet-sdk-2.1.3
+    sudo ./bin/installdependencies.sh 2>&1 /dev/null;
+    echo Dependencies installed
 
     # Configure the agent
     printf "\n";
@@ -66,30 +63,38 @@ function configureAgent() {
 
     # Start the agent as a service
     printf "\n";
-    if [ -x "$(command -v systemctl)" ]; then
-        echo Running VSTS agent as a service...
-        ./svc.sh install;
-        ./svc.sh start;
+     if [ -x "$(command -v systemctl)" ]; then
+        echo Running VSTS agent as a service \(as root\)...
+        sudo ./svc.sh install;
+        sudo ./svc.sh start;
+        echo Service started!
     else
         echo VSTS agent must be run interactively.
         echo Running VSTS agent now...
         ./run.sh;
     fi
 
-    echo HEYYYY
     return $SUCCESS;
 }
 
 function addCapabilities() {
     # Update all YUM packages
-    yum update --assumeyes;
+    echo Upgrading all packages \(as root\)...
+    sudo apt-get upgrade --quiet --assume-yes;
+    echo Upgrade complete
 
     # Install Git
-    yum install git --assumeyes;
+    printf "\n";
+    echo Installing Git \(as root\)...
+    sudo apt-get install --quiet --assume-yes git > /dev/null;
+    echo Git installed
 
     # Install Node.js/NPM
-    curl --fail --location https://rpm.nodesource.com/setup_8.x | sudo bash - > /dev/null
-    yum install --assumeyes nodejs
+    printf "\n";
+    echo Installing Node.js/NPM \(as root\)...
+    curl --silent --show-error --location https://deb.nodesource.com/setup_8.x | sudo --preserve-env bash -  2>&1 /dev/null;
+    sudo apt-get install --quiet --assume-yes nodejs;
+    echo Node.js/NPM installed
 
     return $SUCCESS;
 }
