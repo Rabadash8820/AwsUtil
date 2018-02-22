@@ -66,7 +66,7 @@ Parameters:
     Type: String
     Default: false
     AllowedValues: [ true, false]
-    Description: Hardened bastion hosts will use the latest CIS AMI to improve security.  Unhardened hosts will use the latest Amazon Linux AMI.
+    Description: Hardened bastion hosts will use the latest CIS AMI to improve security.  Unhardened hosts will use the latest Amazon Linux AMI.  Make sure that you accept terms and subscribe to the CIS AMI if you decide to harden (you can just attempt to create a stack once and the CREATE_FAILED event will provide the URL).
   TimeZone:
     Type: String
     Default: UTC
