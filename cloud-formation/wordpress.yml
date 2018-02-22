@@ -297,48 +297,57 @@ Resources:
       VpcId: !ImportValue MainVPC
       GroupDescription: Allow SSH traffic and boilerplate traffic for keeping the instance up-to-date.
       SecurityGroupIngress:
-      - # ICMP traffic from anywhere
+      - 
+        Description: ICMP traffic from anywhere
         IpProtocol: icmp
         FromPort: -1
         ToPort: -1
         CidrIp: 0.0.0.0/0
-      - # SSH access from bastion hosts
+      - 
+        Description: SSH access from bastion hosts
         IpProtocol: tcp
         FromPort: 22
         ToPort: 22
         CidrIp: !Ref BastionCidrBlock
-      - # HTTP for internet access
+      - 
+        Description: HTTP for internet access
         IpProtocol: tcp
         FromPort: 80
         ToPort: 80
         CidrIp: 0.0.0.0/0
-      - # HTTPS for internet access
+      - 
+        Description: HTTPS for internet access
         IpProtocol: tcp
         FromPort: 443
         ToPort: 443
         CidrIp: 0.0.0.0/0
       SecurityGroupEgress:
-      - # ICMP traffic to anywhere
+      - 
+        Description: ICMP traffic to anywhere
         IpProtocol: icmp
         FromPort: -1
         ToPort: -1
         CidrIp: 0.0.0.0/0
-      - # HTTP for automatic updates
+      - 
+        Description: HTTP for automatic updates
         IpProtocol: tcp
         FromPort: 80
         ToPort: 80
         CidrIp: 0.0.0.0/0
-      - # HTTPS for cfn-init to describe resources in CloudFormation stacks
+      - 
+        Description: HTTPS for cfn-init to describe resources in CloudFormation stacks
         IpProtocol: tcp
         FromPort: 443
         ToPort: 443
         CidrIp: 0.0.0.0/0
-      - # NTP to synchronize UTC time with a pool of public servers (only outbound rule required)
+      - 
+        Description: NTP to synchronize UTC time with a pool of public servers (only outbound rule required)
         IpProtocol: udp
         FromPort: 123
         ToPort: 123
         CidrIp: 0.0.0.0/0
-      - # SMTP to send cron output
+      - 
+        Description: SMTP to send cron output
         IpProtocol: tcp
         FromPort: 25
         ToPort: 25
@@ -346,12 +355,14 @@ Resources:
   IngressFromSameSgRule:
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
+      Description: Allow ingress from anything in this same SecurityGroup
       GroupId: !Ref WordPressSG
       IpProtocol: -1
       SourceSecurityGroupId: !Ref WordPressSG
   EgressToSameSgRule:
     Type: AWS::EC2::SecurityGroupEgress
     Properties:
+      Description: Allow egress to anything in this same SecurityGroup
       GroupId: !Ref WordPressSG
       IpProtocol: -1
       SourceSecurityGroupId: !Ref WordPressSG

@@ -424,35 +424,42 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       VpcId: !Ref MainVPC
+      #GroupName is unspecified because, according to the docs, "If you specify a name, you cannot perform updates that require replacement of this resource."  Updating VpcId requires replacement, so by skipping this property, we allow our users to update the MainVPC parameter and everything will just work.
       GroupDescription: Allow SSH traffic and boilerplate traffic for keeping the instance up-to-date.
       SecurityGroupIngress:
-      - # ICMP traffic from anywhere
+      -
+        Description: ICMP traffic from anywhere
         IpProtocol: icmp
         FromPort: -1
         ToPort: -1
         CidrIp: 0.0.0.0/0
       SecurityGroupEgress:
-      - # ICMP traffic to anywhere
+      - 
+        Description: ICMP traffic to anywhere
         IpProtocol: icmp
         FromPort: -1
         ToPort: -1
         CidrIp: 0.0.0.0/0
-      - # HTTP for automatic updates
+      - 
+        Description: HTTP for automatic updates
         IpProtocol: tcp
         FromPort: 80
         ToPort: 80
         CidrIp: 0.0.0.0/0
-      - # HTTPS for cfn-init to describe resources in CloudFormation stacks
+      - 
+        Description: HTTPS for cfn-init to describe resources in CloudFormation stacks
         IpProtocol: tcp
         FromPort: 443
         ToPort: 443
         CidrIp: 0.0.0.0/0
-      - # NTP to synchronize UTC time with a pool of public servers (only outbound rule required)
+      - 
+        Description: NTP to synchronize UTC time with a pool of public servers (only outbound rule required)
         IpProtocol: udp
         FromPort: 123
         ToPort: 123
         CidrIp: 0.0.0.0/0
-      - # SMTP to send cron output
+      - 
+        Description: SMTP to send cron output
         IpProtocol: tcp
         FromPort: 25
         ToPort: 25
@@ -460,12 +467,14 @@ Resources:
   IngressFromSameSgRule:
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
+      Description: Allow ingress from anything in this same SecurityGroup
       GroupId: !Ref BastionSG
       IpProtocol: -1
       SourceSecurityGroupId: !Ref BastionSG
   EgressToSameSgRule:
     Type: AWS::EC2::SecurityGroupEgress
     Properties:
+      Description: Allow egress to anything in this same SecurityGroup
       GroupId: !Ref BastionSG
       IpProtocol: -1
       SourceSecurityGroupId: !Ref BastionSG
@@ -475,6 +484,7 @@ Resources:
     Type: AWS::EC2::SecurityGroupIngress
     Condition: SshIngressCidr1
     Properties:
+      Description: !Sub [ "SSH from ${CidrBlock}", { CidrBlock: !Select [ 0, !Ref IngressCidrBlocks ] } ]
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 0, !Ref IngressCidrBlocks ]
       IpProtocol: tcp
@@ -484,6 +494,7 @@ Resources:
     Type: AWS::EC2::SecurityGroupIngress
     Condition: SshIngressCidr2
     Properties:
+      Description: !Sub [ "SSH from ${CidrBlock}", { CidrBlock: !Select [ 1, !Ref IngressCidrBlocks ] } ]
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 1, !Ref IngressCidrBlocks ]
       IpProtocol: tcp
@@ -493,6 +504,7 @@ Resources:
     Type: AWS::EC2::SecurityGroupIngress
     Condition: SshIngressCidr3
     Properties:
+      Description: !Sub [ "SSH from ${CidrBlock}", { CidrBlock: !Select [ 2, !Ref IngressCidrBlocks ] } ]
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 2, !Ref IngressCidrBlocks ]
       IpProtocol: tcp
@@ -502,6 +514,7 @@ Resources:
     Type: AWS::EC2::SecurityGroupIngress
     Condition: SshIngressCidr4
     Properties:
+      Description: !Sub [ "SSH from ${CidrBlock}", { CidrBlock: !Select [ 3, !Ref IngressCidrBlocks ] } ]
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 3, !Ref IngressCidrBlocks ]
       IpProtocol: tcp
@@ -511,6 +524,7 @@ Resources:
     Type: AWS::EC2::SecurityGroupIngress
     Condition: SshIngressCidr5
     Properties:
+      Description: !Sub [ "SSH from ${CidrBlock}", { CidrBlock: !Select [ 4, !Ref IngressCidrBlocks ] } ]
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 4, !Ref IngressCidrBlocks ]
       IpProtocol: tcp
@@ -520,6 +534,7 @@ Resources:
     Type: AWS::EC2::SecurityGroupIngress
     Condition: RdpIngressCidr1
     Properties:
+      Description: !Sub [ "Remote Desktop from ${CidrBlock}", { CidrBlock: !Select [ 0, !Ref IngressCidrBlocks ] } ]
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 0, !Ref IngressCidrBlocks ]
       IpProtocol: tcp
@@ -529,6 +544,7 @@ Resources:
     Type: AWS::EC2::SecurityGroupIngress
     Condition: RdpIngressCidr2
     Properties:
+      Description: !Sub [ "Remote Desktop from ${CidrBlock}", { CidrBlock: !Select [ 1, !Ref IngressCidrBlocks ] } ]
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 1, !Ref IngressCidrBlocks ]
       IpProtocol: tcp
@@ -538,6 +554,7 @@ Resources:
     Type: AWS::EC2::SecurityGroupIngress
     Condition: RdpIngressCidr3
     Properties:
+      Description: !Sub [ "Remote Desktop from ${CidrBlock}", { CidrBlock: !Select [ 2, !Ref IngressCidrBlocks ] } ]
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 2, !Ref IngressCidrBlocks ]
       IpProtocol: tcp
@@ -547,6 +564,7 @@ Resources:
     Type: AWS::EC2::SecurityGroupIngress
     Condition: RdpIngressCidr4
     Properties:
+      Description: !Sub [ "Remote Desktop from ${CidrBlock}", { CidrBlock: !Select [ 3, !Ref IngressCidrBlocks ] } ]
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 3, !Ref IngressCidrBlocks ]
       IpProtocol: tcp
@@ -556,6 +574,7 @@ Resources:
     Type: AWS::EC2::SecurityGroupIngress
     Condition: RdpIngressCidr5
     Properties:
+      Description: !Sub [ "Remote Desktop from ${CidrBlock}", { CidrBlock: !Select [ 4, !Ref IngressCidrBlocks ] } ]
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 4, !Ref IngressCidrBlocks ]
       IpProtocol: tcp
@@ -567,6 +586,7 @@ Resources:
     Type: AWS::EC2::SecurityGroupEgress
     Condition: SshEgressCidr1
     Properties:
+      Description: !Sub [ "SSH into ${CidrBlock}", { CidrBlock: !Select [ 0, !Ref EgressCidrBlocks ] } ]
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 0, !Ref EgressCidrBlocks ]
       IpProtocol: tcp
@@ -576,6 +596,7 @@ Resources:
     Type: AWS::EC2::SecurityGroupEgress
     Condition: SshEgressCidr2
     Properties:
+      Description: !Sub [ "SSH into ${CidrBlock}", { CidrBlock: !Select [ 1, !Ref EgressCidrBlocks ] } ]
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 1, !Ref EgressCidrBlocks ]
       IpProtocol: tcp
@@ -585,6 +606,7 @@ Resources:
     Type: AWS::EC2::SecurityGroupEgress
     Condition: SshEgressCidr3
     Properties:
+      Description: !Sub [ "SSH into ${CidrBlock}", { CidrBlock: !Select [ 2, !Ref EgressCidrBlocks ] } ]
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 2, !Ref EgressCidrBlocks ]
       IpProtocol: tcp
@@ -594,6 +616,7 @@ Resources:
     Type: AWS::EC2::SecurityGroupEgress
     Condition: SshEgressCidr4
     Properties:
+      Description: !Sub [ "SSH into ${CidrBlock}", { CidrBlock: !Select [ 3, !Ref EgressCidrBlocks ] } ]
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 3, !Ref EgressCidrBlocks ]
       IpProtocol: tcp
@@ -603,6 +626,7 @@ Resources:
     Type: AWS::EC2::SecurityGroupEgress
     Condition: SshEgressCidr5
     Properties:
+      Description: !Sub [ "SSH into ${CidrBlock}", { CidrBlock: !Select [ 4, !Ref EgressCidrBlocks ] } ]
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 4, !Ref EgressCidrBlocks ]
       IpProtocol: tcp
@@ -612,6 +636,7 @@ Resources:
     Type: AWS::EC2::SecurityGroupEgress
     Condition: RdpEgressCidr1
     Properties:
+      Description: !Sub [ "Remote Desktop into ${CidrBlock}", { CidrBlock: !Select [ 0, !Ref EgressCidrBlocks ] } ]
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 0, !Ref EgressCidrBlocks ]
       IpProtocol: tcp
@@ -621,6 +646,7 @@ Resources:
     Type: AWS::EC2::SecurityGroupEgress
     Condition: RdpEgressCidr2
     Properties:
+      Description: !Sub [ "Remote Desktop into ${CidrBlock}", { CidrBlock: !Select [ 1, !Ref EgressCidrBlocks ] } ]
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 1, !Ref EgressCidrBlocks ]
       IpProtocol: tcp
@@ -630,6 +656,7 @@ Resources:
     Type: AWS::EC2::SecurityGroupEgress
     Condition: RdpEgressCidr3
     Properties:
+      Description: !Sub [ "Remote Desktop into ${CidrBlock}", { CidrBlock: !Select [ 2, !Ref EgressCidrBlocks ] } ]
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 2, !Ref EgressCidrBlocks ]
       IpProtocol: tcp
@@ -639,6 +666,7 @@ Resources:
     Type: AWS::EC2::SecurityGroupEgress
     Condition: RdpEgressCidr4
     Properties:
+      Description: !Sub [ "Remote Desktop into ${CidrBlock}", { CidrBlock: !Select [ 3, !Ref EgressCidrBlocks ] } ]
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 3, !Ref EgressCidrBlocks ]
       IpProtocol: tcp
@@ -648,6 +676,7 @@ Resources:
     Type: AWS::EC2::SecurityGroupEgress
     Condition: RdpEgressCidr5
     Properties:
+      Description: !Sub [ "Remote Desktop into ${CidrBlock}", { CidrBlock: !Select [ 4, !Ref EgressCidrBlocks ] } ]
       GroupId: !Ref BastionSG
       CidrIp: !Select [ 4, !Ref EgressCidrBlocks ]
       IpProtocol: tcp
