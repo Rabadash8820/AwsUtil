@@ -17,8 +17,6 @@ Metadata:
         Label:
           default: Bastion Host Instance Configuration
         Parameters:
-        - PublicDns
-        - HostedZone
         - AmiLookupFunctionArn
       -
         Label:
@@ -56,16 +54,6 @@ Parameters:
     Description: The CIDR block for the new public subnet in the provided Availability Zone.  Block size must be between a /16 netmask and a /28 netmask.
     ConstraintDescription: must be a valid CIDR block (e.g., 10.20.114.0/24)
 
-  PublicDns:
-    Type: String
-    Default: bastion.mycompany.com
-    MaxLength: 255
-    AllowedPattern: ^([0-9A-Za-z]+[._-]?)+[0-9A-Za-z]+$
-    ConstraintDescription: must be a valid domain name, i.e., <= 255 alphanumeric characters, periods, hyphens, and underscores.
-    Description: The public DNS name that will be assigned to the new bastion host.  It must be a subdomain of a hosted zone that has already been created in AWS.
-  HostedZone:
-    Type: AWS::Route53::HostedZone::Id
-    Description: The hosted zone in which the new bastion host's CNAME record will be stored.
   AmiLookupFunctionArn:
     Type: String
     Default: arn:aws:lambda:REGION:ACCOUNT_ID:function:AMILookup
@@ -157,7 +145,6 @@ Resources:
           - cfn-hup
           - add-newline-to-bash
           - auto-yum-update
-          - dns-hostname    # manually calls reboot, so must come after other config sets
           - set-timezone    # manually calls reboot, so must come after other config sets
         cfn-hup:
           packages:
@@ -255,26 +242,6 @@ Resources:
                 ensureRunning: true
                 packages: 
                   yum: [ postfix ]
-        dns-hostname:
-          commands:
-            dns-hostname:
-              command: !Sub |
-                newName=${PublicDns}
-                oldName=$(hostname)
-                sed "s|HOSTNAME.*|HOSTNAME=$newName|" --in-place /etc/sysconfig/network
-                echo HOSTNAME changed from \"$oldName\" to \"$newName\"
-                reboot
-              test: !Sub |
-                publicDns=${PublicDns}
-                numChangedLines=$(cat /etc/sysconfig/network | grep "^HOSTNAME=$publicDns$" | wc --lines)
-                if [ $numChangedLines = 0 ] ; then
-                  echo HOSTNAME will be changed to \"$publicDns\"
-                  exit 0
-                else
-                  echo HOSTNAME is already \"$publicDns\"
-                  exit 1
-                fi
-              ignoreErrors: true
         set-timezone:
           commands:
             set-timezone:
@@ -295,18 +262,6 @@ Resources:
                   echo Time zone is already \"$timeZone\"
                   exit 1
                 fi
-
-  # Give it a public DNS hostname
-  CnameRecordSet:
-    Type: AWS::Route53::RecordSet
-    Properties:
-      HostedZoneId: !Ref HostedZone
-      Name: !Ref PublicDns
-      Type: CNAME
-      ResourceRecords: [ !GetAtt Bastion.PublicDnsName ]
-      TTL: 60
-      Comment: String
-      # HealthCheckId: String
 
 Outputs:
   Bastion:
