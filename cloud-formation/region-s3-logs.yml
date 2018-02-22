@@ -37,7 +37,7 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       AccessControl: LogDeliveryWrite
-      BucketName: !Sub ${OrganizationPrefix}-bucket-logs
+      BucketName: !Sub ${OrganizationPrefix}-${AWS::Region}-bucket-logs
       LifecycleConfiguration:
         Rules:
         -

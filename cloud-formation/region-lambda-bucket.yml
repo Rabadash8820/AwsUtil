@@ -30,7 +30,7 @@ Resources:
     Type: AWS::S3::Bucket
     Properties: 
       AccessControl: Private
-      BucketName: !Sub ${OrganizationPrefix}-lambda
+      BucketName: !Sub ${OrganizationPrefix}-${AWS::Region}-lambda
       LoggingConfiguration:
         DestinationBucketName: !Ref LogBucketName
         LogFilePrefix: lambda/
@@ -47,7 +47,7 @@ Resources:
           Effect: Allow
           Principal: { AWS: !Ref "AWS::AccountId" }
           Action: s3:*
-          Resource: !Sub ${LambdaBucket.Arn}-lambda
+          Resource: !GetAtt LambdaBucket.Arn
           Condition: { Bool: { "aws:SecureTransport": true }}
 
 Outputs:
