@@ -68,7 +68,7 @@ Parameters:
     Description: The hosted zone in which the new bastion host's CNAME record will be stored.
   AmiLookupFunctionArn:
     Type: String
-    Default: arn:aws:lambda:REGION:ACCOUNT_ID:function:RegionLookup
+    Default: arn:aws:lambda:REGION:ACCOUNT_ID:function:AMILookup
     Description: ARN of a Lambda function that can return the latest AMIs for this region.  Replace "REGION" and "ACCOUNT_ID" with the correct values, as well as the function name, if applicable.
 
   KeyPair:

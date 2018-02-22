@@ -13,7 +13,7 @@ Metadata:
 Parameters:
   LambdaS3Bucket:
     Type: String
-    Default: mycompany-lambda
+    Default: mycompany-region-lambda
     MinLength: 3
     MaxLength: 63
     AllowedPattern: ^[0-9A-Za-z\.\-_]*(?<!\.)$
@@ -21,21 +21,21 @@ Parameters:
     ConstraintDescription: must contain only alphanumeric characters and/or one or more of the symbols .-_?<!
   S3Key:
     Type: String
-    Default: region-lookup.zip
+    Default: ami-lookup.zip
     MinLength: 1
     MaxLength: 1024
     ConstraintDescription: must be a valid S3 key of length 1-1024.
     Description: The name (S3 key) of the deployment package for this function, inside the Lambda S3 bucket.
 
 Resources:
-  RegionLookupFunction:
+  AMILookupFunction:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: RegionLookup
+      FunctionName: AMILookup
       Code:
         S3Bucket: !Ref LambdaS3Bucket
         S3Key: !Ref S3Key
-      Handler: region-lookup.handler
+      Handler: ami-lookup.handler
       Description: This Lambda function returns returns AMIs and other values that are specific to the requested AWS Region
       Role: !GetAtt LambdaExecutionRole.Arn
       Runtime: nodejs4.3
@@ -44,8 +44,8 @@ Resources:
   LambdaExecutionRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: region-lookup-lambda-role
-      Path: /region-lookup-lambda-role/
+      RoleName: ami-lookup-lambda-role
+      Path: /ami-lookup-lambda-role/
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -55,7 +55,7 @@ Resources:
           Principal: { Service: lambda.amazonaws.com }
           Action: sts:AssumeRole
       Policies:
-      - PolicyName: region-lookup-lambda-role
+      - PolicyName: ami-lookup-lambda-role
         PolicyDocument:
           Version: 2012-10-17
           Statement:
@@ -73,6 +73,6 @@ Resources:
             Action: ec2:DescribeImages
             Resource: "*"
 Outputs:
-  RegionLookupFunction:
-    Value: !Ref RegionLookupFunction
-    Description: FunctionName of the new AWS Region Lookup Lambda function.
+  AMILookupFunction:
+    Value: !Ref AMILookupFunction
+    Description: FunctionName of the new AMI-Lookup Lambda function.

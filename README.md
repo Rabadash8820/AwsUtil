@@ -21,7 +21,7 @@ This is the order in which you should create stacks from the various CloudFormat
    - **active-directory**:  creates a Samba 4 Active Directory Compatible Server (a smaller, cheaper solution to Microsoft Active Directory.  It takes a reference to one of the `region-vpc` stacks created above as a parameter, and must be placed in the same region as one of those stacks.
    
 3. Add utility Lambda functions
-   - **region-lookup-lambda**:  creates a Lambda function to return various data about Regions and AMIs that will be used as CustomResources in later stacks.  Should only be created once per AWS account, and must be created _after_ the `region-lambda-bucket` stack so that the organization's bucket for Lambda packages can be referenced.
+   - **ami-lookup-lambda**:  creates a Lambda function to return various data about Regions and AMIs that will be used as CustomResources in later stacks.  Should be created once per AWS region, and must be created _after_ the `region-lambda-bucket` stack so that the organization's bucket for Lambda packages can be referenced.
    
 4. Secure VPCs
    - **bastion-security**: creates security settings (Network ACLs and Security Groups) for a bastion host.  These settings are VPC-specific, so this stack should be created once per VPC that you wish to protect with a bastion host, and those Regions should already have  a `region-vpc` stack.
