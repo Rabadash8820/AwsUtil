@@ -62,12 +62,17 @@ var instanceTypeToArch = {
     "t2.small":    "HVM64"
 };
 var archToAMINamePattern = {
-    "amzn-linux": {
+    "windows": {
+        "PV64":  "Windows_Server-2016-English-Full-Base*",
+        "HVM64": "Windows_Server-2016-English-Full-Base*",
+        "HVMG2": "Windows_Server-2016-English-Full-Base*"
+    },
+    "linux": {
         "PV64":  "amzn-ami-pv*x86_64-ebs",
         "HVM64": "amzn-ami-hvm*x86_64-gp2",
         "HVMG2": "amzn-ami-graphics-hvm*x86_64-ebs*"
     },
-    "hardened-amzn-linux": {
+    "hardened-linux": {
         "PV64":  "CIS Amazon Linux*",
         "HVM64": "CIS Amazon Linux*",
         "HVMG2": "CIS Amazon Linux*"

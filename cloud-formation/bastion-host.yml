@@ -23,7 +23,7 @@ Metadata:
           default: Bastion Host Software Configuration
         Parameters:
         - KeyPair
-        - HardenOS
+        - OperatingSystem
         - TimeZone
         - YumUpdateEmail
 
@@ -62,11 +62,11 @@ Parameters:
   KeyPair:
     Type: AWS::EC2::KeyPair::KeyName
     Description: The EC2 key pair needed to connect to the new bastion host.
-  HardenOS:
+  OperatingSystem:
     Type: String
-    Default: false
-    AllowedValues: [ true, false]
-    Description: Hardened bastion hosts will use the latest CIS AMI to improve security.  Unhardened hosts will use the latest Amazon Linux AMI.  Make sure that you accept terms and subscribe to the CIS AMI if you decide to harden (you can just attempt to create a stack once and the CREATE_FAILED event will provide the URL).
+    Default: linux
+    AllowedValues: [ windows, linux, hardened-linux ]
+    Description: The OS for the new bastion host.  Windows instances will use the latest Windows Server AMI, Linux bastions will use the latest Amazon Linux AMI, and hardened Linux instanes will use the latest CIS AMI to improve security.  Make sure that if you decide to use hardened Linux, you first accept terms and subscribe to the CIS AMI (you can just attempt to create a stack once and the CREATE_FAILED event will provide the URL).
   TimeZone:
     Type: String
     Default: UTC
@@ -80,7 +80,7 @@ Parameters:
     Description: Email to which notifications from automatic yum updates will be sent.  These notifications will only indicate that updates have been downloaded; the updates will still have to be installed manually.
 
 Conditions:
-  Harden: !Equals [ !Ref HardenOS, true ]
+  Harden: !Equals [ !Ref OperatingSystem, hardened-linux ]
 
 Resources:
   # Define the new public subnet
@@ -108,8 +108,8 @@ Resources:
     Properties:
       ServiceToken: !Ref AmiLookupFunctionArn
       Region: !Ref "AWS::Region"
-      AmiLookupType: !If [Harden, hardened-amzn-linux, amzn-linux]
-      InstanceType: !If [Harden, t2.micro, t2.nano]
+      AmiLookupType: !Ref OperatingSystem
+      InstanceType: !If [Harden, t2.micro, t2.nano]     # t2.micro is the smallest instance type supported by the CIS AMI
   Bastion:
     Type: AWS::EC2::Instance
     Properties:
@@ -117,7 +117,7 @@ Resources:
       EbsOptimized: false
       ImageId: !GetAtt AmiLookup.ImageId
       InstanceInitiatedShutdownBehavior: stop
-      InstanceType: !If [Harden, t2.micro, t2.nano]
+      InstanceType: !If [Harden, t2.micro, t2.nano]     # t2.micro is the smallest instance type supported by the CIS AMI
       KeyName: !Ref KeyPair
       Monitoring: true
       NetworkInterfaces:
