@@ -79,7 +79,7 @@ exports.handler = function(event, lambdaContext) {
     // Log the received request
     console.log("REQUEST RECEIVED:\n" + JSON.stringify(event));
     context = lambdaContext;
-        
+
     // Create the default response body
     returnUrl = url.parse(event.ResponseURL);
     responseBody = {
@@ -91,20 +91,20 @@ exports.handler = function(event, lambdaContext) {
         LogicalResourceId: event.LogicalResourceId,
         Data: {}
     };
-    
+
     // For Delete requests, immediately send a SUCCESS response.
     if (event.RequestType === "Delete") {
         responseBody.Status = "SUCCESS";
         sendResponse();
         return;
     }
- 
+
     // Get AMI IDs with the specified name pattern and owner
     var props = event.ResourceProperties;
     var searchOptions = getInstanceParams(props);
     var ec2 = new aws.EC2({region: props.Region});
     ec2.describeImages(searchOptions)
-       
+
        // If any errors occurred then log them and respond with a FAILED status
        .on("error", function(error, response) {
             responseBody.Status = "FAILED";
@@ -112,7 +112,7 @@ exports.handler = function(event, lambdaContext) {
             console.log(responseData.Error + ":\n", error);
             sendResponse();
        })
-       
+
         // Otherwise, get the latest stable AMI of those returned
         // Respond with a SUCCESS/FAILED status according to whether one was found
        .send(function(err, response) {
@@ -133,7 +133,7 @@ function sendResponse() {
     // Log the response body
     var responseStr = JSON.stringify(responseBody);
     console.log("RESPONSE BODY:\n", responseStr);
- 
+
     // Define options for the HTTPS response
     var options = {
         hostname: returnUrl.hostname,
@@ -145,7 +145,7 @@ function sendResponse() {
             "content-length": responseStr.length
         }
     };
-    
+
     // Define the HTTPS requrest object for the response with these options
     // If successful then log the response's status and headers
     var response = https.request(options, function(response) {
@@ -153,13 +153,13 @@ function sendResponse() {
         console.log("HEADERS: " + JSON.stringify(response.headers));
         context.done();
     });
-    
+
     // If any errors occur then log them
     response.on("error", function(error) {
         console.log("sendResponse Error:" + error);
         context.done();
     });
-  
+
     // Write the response body to the object
     console.log("SENDING RESPONSE...\n");
     response.write(responseStr);
@@ -181,21 +181,21 @@ function getInstanceParams(properties) {
         ],
         // Owners: [ ]
     };
-    
+
     console.log("IMAGE SEARCH OPTIONS:\n" + JSON.stringify(options));
     return options;
 }
 
 function latestImage(images) {
     var latest = null;
-    
+
     // Sort images in descending order based on CreationDate
     images.sort(function(x, y) {
         var xd = new Date(x.CreationDate);
         var yd = new Date(y.CreationDate);
         return yd.getTime() - xd.getTime();
     });
-    
+
     // Return the latest stable AMI
     console.log("SORTED AMIs:\n" + JSON.stringify(images));
     for (var j=0; j < images.length; j++) {
@@ -207,6 +207,6 @@ function latestImage(images) {
             break;
         }
     }
-    
+
     return latest;
 }
