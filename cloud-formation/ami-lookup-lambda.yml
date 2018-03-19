@@ -17,7 +17,7 @@ Parameters:
     MinLength: 3
     MaxLength: 63
     AllowedPattern: ^[0-9A-Za-z\.\-_]*(?<!\.)$
-    Description: Name of the S3 bucket where the deployment package is stored. This bucket must reside in the same AWS region where you are creating the Lambda function.
+    Description: Name of an existing S3 bucket where the Lambda deployment package is stored. This bucket must reside in the same AWS region where you are creating the Lambda function.
     ConstraintDescription: must contain only alphanumeric characters and/or one or more of the symbols .-_?<!
   S3Key:
     Type: String

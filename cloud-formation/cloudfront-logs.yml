@@ -15,13 +15,13 @@ Parameters:
     Type: String
     Default: mycompany
     AllowedPattern: ^[\w+=,.@-]*$
-    Description: A prefix to append to all bucket names and IAM principals (e.g., "mycompany")
+    Description: A prefix to append to all new bucket names and IAM principals (e.g., "mycompany")
     ConstraintDescription: "must be a string of upper and lowercase alphanumeric characters with no spaces, and any of the following characters: =,.@-.  Note that group names are not distinguished by case."
   LogBucketName:
     Type: String
-    Default: mycompany-bucket-logs
+    Default: mycompany-region-bucket-logs
     AllowedPattern: ^[a-z0-9.-]+$
-    Description: The name of the S3 bucket to which the CloudFront logs bucket will store its access logs.
+    Description: The name of an existing S3 bucket to which the CloudFront logs bucket will store its access logs.
     ConstraintDescription: must contain only lowercase letters, numbers, periods (.), and dashes (-).
 
 Resources:

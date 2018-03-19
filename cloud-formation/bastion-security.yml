@@ -467,14 +467,14 @@ Resources:
   IngressFromSameSgRule:
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
-      Description: Allow ingress from anything in this same SecurityGroup
+      Description: Allow ingress from anything using this same SecurityGroup
       GroupId: !Ref BastionSG
       IpProtocol: -1
       SourceSecurityGroupId: !Ref BastionSG
   EgressToSameSgRule:
     Type: AWS::EC2::SecurityGroupEgress
     Properties:
-      Description: Allow egress to anything in this same SecurityGroup
+      Description: Allow egress to anything using this same SecurityGroup
       GroupId: !Ref BastionSG
       IpProtocol: -1
       SourceSecurityGroupId: !Ref BastionSG

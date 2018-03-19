@@ -16,7 +16,7 @@ Parameters:
     Type: String
     Default: mycompany
     AllowedPattern: ^[\w+=,.@-]*$
-    Description: A prefix to append to all bucket names (e.g., "mycompany")
+    Description: A prefix to append to all new bucket names (e.g., "mycompany")
     ConstraintDescription: "must be a string of upper and lowercase alphanumeric characters with no spaces, and any of the following characters: =,.@-."
   KMSKeyAlias:
     Type: String
@@ -39,7 +39,7 @@ Parameters:
     Type: String
     Default: mycompany-bucket-logs
     AllowedPattern: ^[a-z0-9.-]+$
-    Description: The name of the bucket to which the CloudTrail S3 bucket will store logs.
+    Description: The name of an existing S3 bucket to which the CloudTrail S3 bucket will store logs.
     ConstraintDescription: must contain only lowercase letters, numbers, periods (.), and dashes (-).
 
 Resources:
