@@ -30,7 +30,7 @@ Resources:
     Type: AWS::S3::Bucket
     Properties: 
       AccessControl: Private
-      BucketName: !Sub ${OrganizationPrefix}-cloudfront-logs
+      BucketName: !Sub ${OrganizationPrefix}-${AWS::Region}-cloudfront-logs
       LoggingConfiguration:
         DestinationBucketName: !Ref LogBucketName
         LogFilePrefix: cloudfront-logs/
