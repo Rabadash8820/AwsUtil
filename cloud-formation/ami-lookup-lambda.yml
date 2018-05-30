@@ -31,16 +31,30 @@ Resources:
   AMILookupFunction:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: AMILookup
+      FunctionName: AmiLookup
       Code:
         S3Bucket: !Ref LambdaS3Bucket
         S3Key: !Ref S3Key
       Handler: ami-lookup.handler
       Description: This Lambda function returns returns AMIs and other values that are specific to the requested AWS Region
       Role: !GetAtt LambdaExecutionRole.Arn
-      Runtime: nodejs4.3
-      Timeout: 30
-      MemorySize: 128   # MB, must be a multiple of 64 <= 1536, default is 128
+      Runtime: nodejs8.10
+      Timeout: 30        # Seconds, default is 3
+      MemorySize: 128   # MB, must be a multiple of 64 <= 3008, default is 128
+      Environment:
+        Variables: {}
+      # KmsKeyArn:      # Only needed if Environment Variables are provided
+      VpcConfig:
+        SecurityGroupIds: []
+        SubnetIds: []
+      # DeadLetterConfig:
+        # TargetArn:    # Only required if we want to send unprocessed events to, e.g., an SNS topic or SQS queue for further investigation
+      #ReservedConcurrentExecutions:    # Only required if we need to limit concurrent executions due to, e.g., VPC private IP or database connection limits
+                                        # Max 900 (since unreserved concurrent execution pool for a region is 1000, 100 of which cannot be reserved)
+                                        # Each concurrent execution consumes a private IP in the VPC, so must not be larger than subnet size limits
+                                        # Each concurrent execution consumes a database connection, so must not be larger than our database instance's max connections
+      TracingConfig:
+        Mode: Active
   LambdaExecutionRole:
     Type: AWS::IAM::Role
     Properties:
